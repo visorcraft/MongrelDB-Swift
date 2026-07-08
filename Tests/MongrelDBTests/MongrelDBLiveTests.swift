@@ -325,7 +325,7 @@ final class MongrelDBLiveTests: XCTestCase {
 
         let url = "http://127.0.0.1:\(port)"
         let probe = MongrelDBClient(baseURL: url)
-        let healthy = Self.waitForHealth(probe: probe, timeoutSeconds: 40)
+        let healthy = await Self.waitForHealth(probe: probe, timeoutSeconds: 40)
         if !healthy {
             let log = Self.readPipeString(outPipe)
             Self.bootError = "mongreldb-server did not become healthy. Log:\n\(log)"
@@ -400,7 +400,7 @@ final class MongrelDBLiveTests: XCTestCase {
     /// closes it and returns the port (same TOCTOU trade-off as Java's
     /// `new ServerSocket(0)` / Go's `net.Listen`).
     private static func freePort() throws -> Int {
-        let s = socket(AF_INET, Int32(SOCK_STREAM), 0)
+        let s = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
         guard s >= 0 else { throw QueryError("mongreldb: socket() failed") }
         defer { close(s) }
 
