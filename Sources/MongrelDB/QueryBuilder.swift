@@ -62,7 +62,7 @@ public final class QueryBuilder {
     ///   - params: the condition parameters (friendly aliases accepted)
     /// - Returns: this builder, for chaining
     @discardableResult
-    public func where(_ condType: String, params: [String: Any]) -> QueryBuilder {
+    public func `where`(_ condType: String, params: [String: Any]) -> QueryBuilder {
         let normalized = Self.normalizeCondition(condType: condType, params: params)
         let entry: [String: Any] = [condType: normalized]
         conditions.append(entry)

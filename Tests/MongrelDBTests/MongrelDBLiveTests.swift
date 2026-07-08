@@ -123,7 +123,7 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.put(name, cells: [1: 42])
         _ = try await db.put(name, cells: [1: 43])
 
-        let rows = try await db.query(name).where("pk", params: ["value": 42]).execute()
+        let rows = try await db.query(name).`where`("pk", params: ["value": 42]).execute()
         XCTAssertEqual(rows.count, 1, "expected exactly 1 row")
     }
 
@@ -137,7 +137,7 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.put(name, cells: [1: 3, 2: 200])
 
         // Range predicate using friendly aliases (column/min/max -> column_id/lo/hi).
-        let builder = db.query(name).where("range", params: ["column": 2, "min": 100, "max": 150])
+        let builder = db.query(name).`where`("range", params: ["column": 2, "min": 100, "max": 150])
         let rows = try await builder.execute()
         XCTAssertFalse(rows.isEmpty, "range query should return at least 1 row")
         XCTAssertFalse(builder.truncated, "result should not be truncated")
@@ -220,7 +220,7 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.upsert(name, cells: [1: 1, 2: 50], updateCells: [2: 999])
         XCTAssertEqual(try await db.count(name), 1, "upsert should not add a second row")
 
-        let rows = try await db.query(name).where("pk", params: ["value": 1]).execute()
+        let rows = try await db.query(name).`where`("pk", params: ["value": 1]).execute()
         XCTAssertEqual(rows.count, 1, "expected the upserted row")
     }
 
