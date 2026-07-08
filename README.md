@@ -1,13 +1,21 @@
-# MongrelDB Swift Client
+<p align="center">
+  <img src="assets/mongrel.png" alt="MongrelDB logo" width="250" />
+</p>
 
-MongrelDB Swift Client is the pure-Swift HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Swift applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
+<h1 align="center">MongrelDB Swift Client</h1>
 
-No external dependencies - built on the standard library `URLSession` (Swift 5.9+). The API mirrors the MongrelDB PHP, Go, Java, and Ruby clients.
+<p align="center">
+  <b>Swift client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
+  <br />
+  No external dependencies - built on the standard library <code>URLSession</code> (Swift 5.9+). The API mirrors the MongrelDB PHP, Go, Java, and Ruby clients.
+</p>
 
-[![Swift CI](https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml/badge.svg)](https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml)
-[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org/)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20iOS%20%7C%20Linux-lightgrey.svg)](https://swift.org/)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+<p align="center">
+  <a href="https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml"><img src="https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml/badge.svg" alt="Swift CI" /></a>
+  <a href="https://swift.org/"><img src="https://img.shields.io/badge/Swift-5.9%2B-orange.svg" alt="Swift" /></a>
+  <a href="https://swift.org/"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20iOS%20%7C%20Linux-lightgrey.svg" alt="Platform" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="License" /></a>
+</p>
 
 ## Package
 
