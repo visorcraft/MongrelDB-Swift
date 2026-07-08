@@ -489,7 +489,19 @@ public final class MongrelDBClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: req)
+            // URLSession's async data(for:) is unavailable on Linux
+            // (FoundationNetworking), so drive the completion-handler-based
+            // dataTask API through a continuation instead.
+            (data, response) = try await withCheckedThrowingContinuation { cont in
+                let task = session.dataTask(with: req) { data, response, error in
+                    if let error {
+                        cont.resume(throwing: error)
+                    } else {
+                        cont.resume(returning: (data ?? Data(), response!))
+                    }
+                }
+                task.resume()
+            }
         } catch {
             throw QueryError(
                 "mongreldb: request \(method) \(path) failed: \(error.localizedDescription)",
