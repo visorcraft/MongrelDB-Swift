@@ -45,20 +45,24 @@ final class MongrelDBLiveTests: XCTestCase {
         try await freshTable(db, name, columns: [Self.intCol(1, "id", primaryKey: true)])
 
         _ = try await db.put(name, cells: [1: 5])
-        XCTAssertEqual(try await db.count(name), 1)
+        let countAfterPut = try await db.count(name)
+        XCTAssertEqual(countAfterPut, 1)
 
         try await db.deleteByPk(name, pk: 5)
-        XCTAssertEqual(try await db.count(name), 0, "expected 0 rows after delete")
+        let countAfterDelete = try await db.count(name)
+        XCTAssertEqual(countAfterDelete, 0, "expected 0 rows after delete")
     }
 
     func testDropTable() async throws {
         let db = try await requireDaemon()
         let name = Self.uniqueTable("swift_drop")
         try await freshTable(db, name, columns: [Self.intCol(1, "id", primaryKey: true)])
-        XCTAssertTrue(try await db.tableNames().contains(name), "table should exist before drop")
+        let namesBeforeDrop = try await db.tableNames()
+        XCTAssertTrue(namesBeforeDrop.contains(name), "table should exist before drop")
 
         try await db.dropTable(name)
-        XCTAssertFalse(try await db.tableNames().contains(name), "table should be gone after drop")
+        let namesAfterDrop = try await db.tableNames()
+        XCTAssertFalse(namesAfterDrop.contains(name), "table should be gone after drop")
     }
 
     func testErrorOnNonexistentTable() async throws {
@@ -100,7 +104,8 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.put(name, cells: [1: 7], idempotencyKey: key)
         // The daemon returns the original response on duplicate commits. The
         // row count must remain 1 either way.
-        XCTAssertEqual(try await db.count(name), 1, "idempotent put should not duplicate the row")
+        let countAfterIdempotentPut = try await db.count(name)
+        XCTAssertEqual(countAfterIdempotentPut, 1, "idempotent put should not duplicate the row")
     }
 
     func testPutAndCountRoundTrip() async throws {
@@ -218,7 +223,8 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.put(name, cells: [1: 1, 2: 50])
         // Upsert the same PK with an update_cells that rewrites amount.
         _ = try await db.upsert(name, cells: [1: 1, 2: 50], updateCells: [2: 999])
-        XCTAssertEqual(try await db.count(name), 1, "upsert should not add a second row")
+        let countAfterUpsert = try await db.count(name)
+        XCTAssertEqual(countAfterUpsert, 1, "upsert should not add a second row")
 
         let rows = try await db.query(name).`where`("pk", params: ["value": 1]).execute()
         XCTAssertEqual(rows.count, 1, "expected the upserted row")
