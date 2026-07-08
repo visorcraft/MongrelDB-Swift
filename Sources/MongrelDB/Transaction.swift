@@ -16,7 +16,7 @@ import Foundation
 /// try await txn.put("orders", cells: [1: 10, 2: "Dave"], returning: false)
 /// try await txn.put("orders", cells: [1: 11, 2: "Eve"], returning: false)
 /// try await txn.deleteByPk("orders", pk: 2)
-/// let results = try await txn.commit() // atomic — all or nothing
+/// let results = try await txn.commit() // atomic - all or nothing
 /// ```
 public final class Transaction {
     /// The error used when `commit` or `rollback` is called on a transaction
@@ -32,7 +32,7 @@ public final class Transaction {
     }
 
     /// Stages an insert. `returning`, when `true`, asks the daemon to echo the
-    /// row in the per-operation result. Staging is local (no network I/O) —
+    /// row in the per-operation result. Staging is local (no network I/O) -
     /// flush the batch with ``commit(idempotencyKey:)``.
     /// - Parameters:
     ///   - table: the target table
@@ -108,7 +108,7 @@ public final class Transaction {
 
     /// Sends all staged operations atomically and returns the per-operation
     /// results. `idempotencyKey`, when non-nil and non-empty, makes the commit
-    /// safe to retry — the daemon returns the original response on duplicate
+    /// safe to retry - the daemon returns the original response on duplicate
     /// commits, even after a crash.
     ///
     /// - Parameter idempotencyKey: an idempotency key, or `nil`

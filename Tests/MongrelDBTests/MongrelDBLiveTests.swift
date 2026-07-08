@@ -252,7 +252,7 @@ final class MongrelDBLiveTests: XCTestCase {
     }
 
     /// A token-configured client against an unreachable host still reports
-    /// `health() == false` — exercising the Bearer-auth header path without
+    /// `health() == false` - exercising the Bearer-auth header path without
     /// crashing.
     func testTokenConfiguredClientHealthIsFalseWhenUnreachable() async {
         let unreachable = MongrelDBClient(baseURL: "http://127.0.0.1:1", token: "super-secret", timeout: 2)

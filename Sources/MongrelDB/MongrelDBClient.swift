@@ -11,11 +11,11 @@ import FoundationNetworking
 /// `MongrelDBError` to handle any client-side failure, or catch one of the
 /// specific subclasses:
 ///
-/// - ``AuthError`` — HTTP 401/403 (bad or missing credentials)
-/// - ``NotFoundError`` — HTTP 404 (missing table, schema, etc.)
-/// - ``ConflictError`` — HTTP 409 (unique, foreign-key, check, or trigger
+/// - ``AuthError`` - HTTP 401/403 (bad or missing credentials)
+/// - ``NotFoundError`` - HTTP 404 (missing table, schema, etc.)
+/// - ``ConflictError`` - HTTP 409 (unique, foreign-key, check, or trigger
 ///   constraint violations)
-/// - ``QueryError`` — HTTP 400 or 5xx, and any other request-level failure
+/// - ``QueryError`` - HTTP 400 or 5xx, and any other request-level failure
 ///   (including transport failures, which carry an HTTP status of `-1`)
 ///
 /// Each typed error carries the HTTP status code, the daemon's decoded error
@@ -59,13 +59,13 @@ open class MongrelDBError: Error, CustomStringConvertible {
     }
 }
 
-/// Raised for HTTP 401 or 403 responses — bad or missing credentials.
+/// Raised for HTTP 401 or 403 responses - bad or missing credentials.
 public final class AuthError: MongrelDBError {}
 
-/// Raised for HTTP 404 responses — a missing table, schema, or other resource.
+/// Raised for HTTP 404 responses - a missing table, schema, or other resource.
 public final class NotFoundError: MongrelDBError {}
 
-/// Raised for HTTP 409 responses — a unique, foreign-key, check, or trigger
+/// Raised for HTTP 409 responses - a unique, foreign-key, check, or trigger
 /// constraint violation.
 ///
 /// During a transaction commit, the engine enforces all constraints at commit
@@ -105,7 +105,7 @@ public final class QueryError: MongrelDBError {
 ///
 /// The daemon's API is dynamic JSON (objects, arrays, numbers, strings, bools,
 /// null), so values flow through the client as `[String: Any]` / `[Any]` /
-/// `Any` — the exact shape the other MongrelDB clients (PHP/Go/Java/Ruby) use.
+/// `Any` - the exact shape the other MongrelDB clients (PHP/Go/Java/Ruby) use.
 public enum JSON {
     /// A JSON `null` for use in `[String: Any]` / `[Any]` payloads. Swift's
     /// `nil` cannot be stored in an `Any` slot, so pass `JSON.null` to write a
@@ -266,7 +266,7 @@ public final class MongrelDBClient {
     // MARK: CRUD (via the Kit typed transaction endpoint)
 
     /// Inserts a row. `idempotencyKey`, when non-nil and non-empty, makes the
-    /// commit safe to retry — the daemon returns the original result on
+    /// commit safe to retry - the daemon returns the original result on
     /// duplicate commits.
     ///
     /// - Parameters:
@@ -521,7 +521,7 @@ public final class MongrelDBClient {
 
     /// Flattens a column-id-to-value map to the server's flat
     /// `[col_id, value, col_id, value, ...]` array. Pair order is not
-    /// significant — each value is preceded by its own column id.
+    /// significant - each value is preceded by its own column id.
     static func flattenCells(_ cells: [Int: Any]) -> [Any] {
         var flat: [Any] = []
         flat.reserveCapacity(cells.count * 2)

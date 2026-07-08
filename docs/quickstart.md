@@ -183,7 +183,7 @@ total rows: 2
 
 **Using the column name instead of the column id.** Every on-wire API uses the
 numeric `id` from `createTable`, never the `name`. The query builder's
-`column` alias maps to the server's `column_id` — pass the `Int` id, not the
+`column` alias maps to the server's `column_id` - pass the `Int` id, not the
 `String` name:
 
 ```swift
@@ -216,8 +216,8 @@ pass `token:` or `username:`/`password:`. See [auth.md](auth.md).
 
 ## Next steps
 
-- [transactions.md](transactions.md) — atomic batches, idempotency, retries
-- [queries.md](queries.md) — every native index condition
-- [sql.md](sql.md) — recursive CTEs, window functions, `CREATE TABLE AS SELECT`
-- [auth.md](auth.md) — bearer tokens, basic auth, user/role management
-- [errors.md](errors.md) — the full error hierarchy and recovery patterns
+- [transactions.md](transactions.md) - atomic batches, idempotency, retries
+- [queries.md](queries.md) - every native index condition
+- [sql.md](sql.md) - recursive CTEs, window functions, `CREATE TABLE AS SELECT`
+- [auth.md](auth.md) - bearer tokens, basic auth, user/role management
+- [errors.md](errors.md) - the full error hierarchy and recovery patterns

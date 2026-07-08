@@ -1,4 +1,4 @@
-# MongrelDB Swift Client — Guides
+# MongrelDB Swift Client - Guides
 
 Task-focused guides for the pure-Swift MongrelDB HTTP client. For the full API
 surface in one place, see the root [README](../README.md).

@@ -44,18 +44,18 @@ public final class QueryBuilder {
     /// Adds a native condition. Conditions are AND-ed together.
     ///
     /// Available condition types include:
-    /// - `pk` — exact primary-key match (`["value": pk]`)
-    /// - `bitmap_eq` — equality on a bitmap-indexed column
-    /// - `bitmap_in` — IN predicate on a bitmap-indexed column
-    /// - `range` — integer range predicate (lo/hi, inclusive)
-    /// - `range_f64` — float range predicate (lo/hi + lo_inclusive/hi_inclusive)
-    /// - `is_null` — null check
-    /// - `is_not_null` — non-null check
-    /// - `fm_contains` — full-text substring search (FM-index)
-    /// - `fm_contains_all` — multiple substring patterns (all must match)
-    /// - `ann` — dense vector similarity search (HNSW)
-    /// - `sparse_match` — sparse vector match
-    /// - `min_hash_similar` — MinHash similarity search
+    /// - `pk` - exact primary-key match (`["value": pk]`)
+    /// - `bitmap_eq` - equality on a bitmap-indexed column
+    /// - `bitmap_in` - IN predicate on a bitmap-indexed column
+    /// - `range` - integer range predicate (lo/hi, inclusive)
+    /// - `range_f64` - float range predicate (lo/hi + lo_inclusive/hi_inclusive)
+    /// - `is_null` - null check
+    /// - `is_not_null` - non-null check
+    /// - `fm_contains` - full-text substring search (FM-index)
+    /// - `fm_contains_all` - multiple substring patterns (all must match)
+    /// - `ann` - dense vector similarity search (HNSW)
+    /// - `sparse_match` - sparse vector match
+    /// - `min_hash_similar` - MinHash similarity search
     ///
     /// - Parameters:
     ///   - condType: the condition type

@@ -69,7 +69,7 @@ mapped to `QueryError`, with `status == -1` and the underlying error in
 
 ## Discriminating errors
 
-### By category — typed `catch`
+### By category - typed `catch`
 
 ```swift
 do {
@@ -87,7 +87,7 @@ do {
 }
 ```
 
-### By details — read the fields
+### By details - read the fields
 
 ```swift
 do {
@@ -99,7 +99,7 @@ do {
 
 ## Recovery patterns
 
-### Auth failure — do not retry blindly
+### Auth failure - do not retry blindly
 
 A retry will not fix bad credentials. Surface the error to the caller or
 operator.
@@ -110,7 +110,7 @@ catch let e as AuthError {
 }
 ```
 
-### Not found — fall back, do not crash
+### Not found - fall back, do not crash
 
 For lookups by primary key, a 404 may be a normal "absent" result.
 
@@ -118,14 +118,14 @@ For lookups by primary key, a 404 may be a normal "absent" result.
 do {
     _ = try await db.schemaFor(tableName)
 } catch is NotFoundError {
-    return [:] // table missing — treat as empty
+    return [:] // table missing - treat as empty
 }
 ```
 
 Note: a `pk` query against an existing table returns zero rows, not a 404;
 `NotFoundError` here means the table itself is missing.
 
-### Constraint conflict — report the offending op
+### Constraint conflict - report the offending op
 
 ```swift
 do {
@@ -140,9 +140,9 @@ do {
 }
 ```
 
-The engine already rolled back the whole batch — there is nothing to undo.
+The engine already rolled back the whole batch - there is nothing to undo.
 
-### Transient failure — retry with an idempotency key
+### Transient failure - retry with an idempotency key
 
 `QueryError` covers transport and 5xx failures. With an idempotency key,
 retrying a transaction is safe (see [transactions.md](transactions.md)).
@@ -155,7 +155,7 @@ func run(db: MongrelDBClient, build: (MongrelDBClient) -> Transaction, key: Stri
     } catch is AuthError, is ConflictError {
         throw MongrelDBError(message: "not transient") // caller must not retry
     } catch {
-        throw error // QueryError / network — caller may retry with the same key
+        throw error // QueryError / network - caller may retry with the same key
     }
 }
 ```
@@ -163,7 +163,7 @@ func run(db: MongrelDBClient, build: (MongrelDBClient) -> Transaction, key: Stri
 ### Transaction-state error
 
 Calling `commit` or `rollback` twice on the same `Transaction` traps with a
-precondition failure. That is a programming bug — fix the control flow rather
+precondition failure. That is a programming bug - fix the control flow rather
 than catching it.
 
 ## Quick reference
@@ -188,5 +188,5 @@ catch let e as ConflictError {
 
 ## Next steps
 
-- [transactions.md](transactions.md) — constraint handling and retries in context
-- [auth.md](auth.md) — credential management
+- [transactions.md](transactions.md) - constraint handling and retries in context
+- [auth.md](auth.md) - credential management

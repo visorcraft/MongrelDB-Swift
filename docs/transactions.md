@@ -1,8 +1,8 @@
 # Transactions
 
 MongrelDB commits every write through a single atomic transaction endpoint
-(`POST /kit/txn`). This guide covers the two ways to use it — a one-shot
-single op, and a staged batch — plus idempotency keys for safe retries, typed
+(`POST /kit/txn`). This guide covers the two ways to use it - a one-shot
+single op, and a staged batch - plus idempotency keys for safe retries, typed
 constraint-violation handling, and rollback.
 
 The engine enforces `UNIQUE`, foreign-key, check, and trigger constraints at
@@ -44,7 +44,7 @@ print("committed \(results.count) ops")
 ```
 
 The `returning:` argument to `Transaction.put` asks the daemon to echo the
-written row back in the result — useful for reading server-assigned values.
+written row back in the result - useful for reading server-assigned values.
 
 ```swift
 let txn = db.beginTransaction()
@@ -83,7 +83,7 @@ Rules for keys:
 
 - Any non-empty string works. Prefer content-derived, globally-unique values
   (e.g. `"charge:\(orderID)"`).
-- `nil` (the default) disables idempotency — a retry will commit again.
+- `nil` (the default) disables idempotency - a retry will commit again.
 - The key scopes the **entire batch**, not individual ops. Reuse the exact
   same ops and key together when retrying.
 
@@ -98,11 +98,11 @@ func commitWithRetry(db: MongrelDBClient, build: (MongrelDBClient) -> Transactio
             _ = try await txn.commit(idempotencyKey: key)
             return
         } catch let e as ConflictError {
-            throw e // a real constraint violation — do not retry
+            throw e // a real constraint violation - do not retry
         } catch let e as AuthError {
-            throw e // caller must fix credentials — do not retry
+            throw e // caller must fix credentials - do not retry
         } catch {
-            // QueryError / network — the idempotency key makes it safe to retry.
+            // QueryError / network - the idempotency key makes it safe to retry.
             if attempt == 2 { throw e }
             try await Task.sleep(nanoseconds: UInt64(1 << attempt) * 1_000_000_000)
         }

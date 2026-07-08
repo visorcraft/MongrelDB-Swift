@@ -1,8 +1,8 @@
 # MongrelDB Swift Client
 
-MongrelDB Swift Client is the pure-Swift HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Swift applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection — all over HTTP to a running `mongreldb-server` daemon.
+MongrelDB Swift Client is the pure-Swift HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Swift applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
 
-No external dependencies — built on the standard library `URLSession` (Swift 5.9+). The API mirrors the MongrelDB PHP, Go, Java, and Ruby clients.
+No external dependencies - built on the standard library `URLSession` (Swift 5.9+). The API mirrors the MongrelDB PHP, Go, Java, and Ruby clients.
 
 [![Swift CI](https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml/badge.svg)](https://github.com/visorcraft/MongrelDB-Swift/actions/workflows/ci.yml)
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org/)
@@ -38,7 +38,7 @@ and attach it to a target:
 
 File → Add Package Dependencies… → enter `https://github.com/visorcraft/MongrelDB-Swift.git`, then add the `MongrelDB` library to your target.
 
-The package has no runtime dependencies — only the Swift standard library and Foundation.
+The package has no runtime dependencies - only the Swift standard library and Foundation.
 
 ## Requirements
 
@@ -49,7 +49,7 @@ The package has no runtime dependencies — only the Swift standard library and 
 
 - **Typed CRUD** over the Kit transaction endpoint: `put`, `upsert` (insert-or-update on PK conflict), `delete` by row id or primary key, all with optional idempotency keys for safe retries.
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
-- **Idempotent batch transactions** — operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
+- **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
 - **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
 - **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `sql`.
@@ -61,12 +61,12 @@ The package has no runtime dependencies — only the Swift standard library and 
 
 Task-focused, commented guides live in [`docs/`](docs):
 
-- [Quickstart](docs/quickstart.md) — install, start the daemon, write and run a complete program.
-- [Transactions](docs/transactions.md) — batch commits, idempotency keys, constraint handling.
-- [Queries](docs/queries.md) — every native condition type and the index it pushes down to.
-- [SQL](docs/sql.md) — recursive CTEs, window functions, advanced SQL.
-- [Authentication](docs/auth.md) — Bearer token, HTTP Basic, and open modes.
-- [Errors](docs/errors.md) — the error hierarchy and recovery patterns.
+- [Quickstart](docs/quickstart.md) - install, start the daemon, write and run a complete program.
+- [Transactions](docs/transactions.md) - batch commits, idempotency keys, constraint handling.
+- [Queries](docs/queries.md) - every native condition type and the index it pushes down to.
+- [SQL](docs/sql.md) - recursive CTEs, window functions, advanced SQL.
+- [Authentication](docs/auth.md) - Bearer token, HTTP Basic, and open modes.
+- [Errors](docs/errors.md) - the error hierarchy and recovery patterns.
 
 ## Quick Example
 
@@ -144,7 +144,7 @@ txn.put("orders", cells: [1: 11, 2: "Eve",  3: 75.00], returning: false)
 txn.deleteByPk("orders", pk: 2)
 
 do {
-    let results = try await txn.commit() // atomic — all or nothing
+    let results = try await txn.commit() // atomic - all or nothing
     print("committed \(results.count) ops")
 } catch let e as ConflictError {
     // A constraint violation rolled back every op.
@@ -152,7 +152,7 @@ do {
     txn.rollback() // discard locally as well
 }
 
-// Idempotent commit — safe to retry; the daemon returns the original response.
+// Idempotent commit - safe to retry; the daemon returns the original response.
 let txn2 = db.beginTransaction()
 txn2.put("orders", cells: [1: 20, 2: "Frank", 3: 100.00], returning: false)
 _ = try await txn2.commit(idempotencyKey: "order-20-create")
@@ -356,7 +356,7 @@ chmod +x bin/mongreldb-server
 Contributions are welcome. Please:
 
 1. Open an issue first for non-trivial changes.
-2. Add focused tests near your change — the suite must stay green.
+2. Add focused tests near your change - the suite must stay green.
 3. Keep the client dependency-free (Swift standard library + Foundation only).
 
 ## License
