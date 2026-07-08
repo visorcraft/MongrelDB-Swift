@@ -83,7 +83,7 @@ public final class ConflictError: MongrelDBError {}
 /// status of `-1`).
 public final class QueryError: MongrelDBError {
     /// Creates an error carrying the daemon's HTTP response detail.
-    public init(
+    override public init(
         message: String,
         status: Int,
         code: String? = nil,
