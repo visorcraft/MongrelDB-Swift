@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     name: Build & verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Swift
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: '5.9'
+          swift-version: '5.9.2'
 
       - name: Print Swift version
         run: swift --version
@@ -34,17 +34,13 @@ jobs:
         run: swift build
 
       - name: Offline tests (no daemon)
-        # Runs the test suite without a daemon; the live tests self-skip via
-        # XCTSkip and the offline tests (health-returns-false, etc.) run
-        # normally.
         run: swift test
 
   live:
-    # Boots a real mongreldb-server and runs the live round-trip suite.
     name: Live integration (against mongreldb-server)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
-      SERVER_VERSION: '0.43.3'
+      SERVER_VERSION: '0.44.1'
       MONGRELDB_URL: http://127.0.0.1:8453
     steps:
       - name: Checkout
@@ -53,7 +49,7 @@ jobs:
       - name: Set up Swift
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: '5.9'
+          swift-version: '5.9.2'
 
       - name: Print Swift version
         run: swift --version
@@ -82,7 +78,6 @@ jobs:
           rm -rf /tmp/mongreldb-data
           ./bin/mongreldb-server /tmp/mongreldb-data --port 8453 > /tmp/mongreldb-server.log 2>&1 &
           echo $! > /tmp/mongreldb-server.pid
-          # Wait for the daemon to become healthy (max ~30s).
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8453/health >/dev/null 2>&1; then
               echo "mongreldb-server is healthy"
