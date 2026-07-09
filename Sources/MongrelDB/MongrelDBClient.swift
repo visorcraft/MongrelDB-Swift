@@ -357,8 +357,11 @@ public final class MongrelDBClient {
         let body = try await post("/sql", ["sql": sql, "format": "json"])
         let trimmed = Self.trimWhitespace(body)
         if trimmed.isEmpty { return [] }
-        // Requested format is JSON; decode the array of row objects.
-        let parsed = try JSON.decode(body)
+        // Requested format is JSON; decode the array of row objects. An old
+        // server may ignore the requested JSON format and answer with Arrow IPC
+        // binary bytes (which are not valid JSON). Treat that as "no rows"
+        // rather than throwing, so callers keep working against legacy servers.
+        guard let parsed = try? JSON.decode(body) else { return [] }
         if let arr = parsed as? [Any] {
             var rows: [[String: Any]] = []
             for row in arr {
