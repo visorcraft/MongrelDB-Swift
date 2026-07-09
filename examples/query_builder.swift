@@ -43,7 +43,7 @@ struct QueryBuilderExample {
             // Range condition: scores in [60.0, 90.0]. "column" maps to
             // column_id, so pass the numeric column id (3), not the name.
             let rng = try await db.query(table)
-                .where("range", params: ["column": 3, "min": 60.0, "max": 90.0])
+                .where("range_f64", params: ["column": 3, "min": 60.0, "max": 90.0, "min_inclusive": true, "max_inclusive": true])
                 .execute()
             print("Range query (score in [60,90]) returned \(rng.count) rows:")
             for row in rng {
