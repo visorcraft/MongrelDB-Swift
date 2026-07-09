@@ -130,6 +130,8 @@ final class MongrelDBLiveTests: XCTestCase {
 
         let rows = try await db.query(name).`where`("pk", params: ["value": 42]).execute()
         XCTAssertEqual(rows.count, 1, "expected exactly 1 row")
+        // The returned row must carry the queried PK value.
+        XCTAssertEqual(Self.cellInt(rows[0], colId: 1), 42, "expected pk 42")
     }
 
     func testQueryRangeWithFriendlyAliases() async throws {
@@ -144,16 +146,34 @@ final class MongrelDBLiveTests: XCTestCase {
         // Range predicate using friendly aliases (column/min/max -> column_id/lo/hi).
         let builder = db.query(name).`where`("range", params: ["column": 2, "min": 100, "max": 150])
         let rows = try await builder.execute()
-        XCTAssertFalse(rows.isEmpty, "range query should return at least 1 row")
+        // Only the row with amount=120 (pk=2) falls in [100, 150].
+        XCTAssertEqual(rows.count, 1, "range query should return exactly the matching row")
         XCTAssertFalse(builder.truncated, "result should not be truncated")
+        // Verify the PK and amount values of returned rows match the filter range.
+        for row in rows {
+            XCTAssertEqual(Self.cellInt(row, colId: 1), 2, "expected returned pk 2")
+            let amt = Self.cellInt(row, colId: 2)
+            XCTAssertGreaterThanOrEqual(amt, 100, "amount below range")
+            XCTAssertLessThanOrEqual(amt, 150, "amount above range")
+        }
     }
 
-    func testSQLRuns() async throws {
+    func testSQLInsertIncreasesCountAndSelectReturnsRow() async throws {
         let db = try await requireDaemon()
-        // SELECT 1 yields no JSON rows (the daemon streams Arrow IPC), so we
-        // just assert it runs without error.
-        let rows = try await db.sql("SELECT 1")
-        XCTAssertEqual(rows.count, 0, "SELECT 1 should decode to no JSON rows")
+        let name = Self.uniqueTable("swift_sql")
+        try await freshTable(db, name, columns: [Self.intCol(1, "id", primaryKey: true), Self.intCol(2, "amount", primaryKey: false)])
+
+        let countBefore = try await db.count(name)
+        XCTAssertEqual(countBefore, 0, "expected 0 rows")
+        // INSERT via SQL must increase the row count.
+        _ = try await db.sql("INSERT INTO \(name) (id, amount) VALUES (10, 42)")
+        let countAfter = try await db.count(name)
+        XCTAssertEqual(countAfter, 1, "count must increase after INSERT")
+
+        // JSON SQL mode must return the inserted row.
+        let rows = try await db.sql("SELECT id, amount FROM \(name)")
+        XCTAssertEqual(rows.count, 1, "expected 1 row from JSON SELECT")
+        XCTAssertEqual(MongrelDBClient.asInt(rows[0]["id"]), 10, "expected id 10")
     }
 
     func testSchemaForReturnsDescriptor() async throws {
@@ -228,6 +248,9 @@ final class MongrelDBLiveTests: XCTestCase {
 
         let rows = try await db.query(name).`where`("pk", params: ["value": 1]).execute()
         XCTAssertEqual(rows.count, 1, "expected the upserted row")
+        // Assert the PK and the updated cell value.
+        XCTAssertEqual(Self.cellInt(rows[0], colId: 1), 1, "expected pk 1")
+        XCTAssertEqual(Self.cellInt(rows[0], colId: 2), 999, "expected updated amount 999")
     }
 
     func testCompact() async throws {
@@ -358,6 +381,26 @@ final class MongrelDBLiveTests: XCTestCase {
 
     private static func intCol(_ id: Int, _ name: String, primaryKey: Bool) -> [String: Any] {
         ["id": id, "name": name, "ty": "int64", "primary_key": primaryKey, "nullable": false]
+    }
+
+    /// Extracts an `Int` value for `colId` from a Kit row's flat `cells` array
+    /// (shape: `[col_id, value, col_id, value, ...]`).
+    private static func cellInt(_ row: [String: Any], colId: Int) -> Int {
+        guard let cells = row["cells"] as? [Any] else {
+            XCTFail("cell \(colId) not found: row has no cells array")
+            return 0
+        }
+        var i = 0
+        while i + 1 < cells.count {
+            if MongrelDBClient.asInt(cells[i]) == colId {
+                if let v = MongrelDBClient.asInt(cells[i + 1]) { return v }
+                XCTFail("cell \(colId) value not an int: \(cells[i + 1])")
+                return 0
+            }
+            i += 2
+        }
+        XCTFail("cell \(colId) not found in row")
+        return 0
     }
 
     private static func floatCol(_ id: Int, _ name: String) -> [String: Any] {

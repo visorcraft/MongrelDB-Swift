@@ -155,6 +155,11 @@ public final class MongrelDBClient {
     /// The default per-request timeout, in seconds.
     public static let defaultTimeout: TimeInterval = 30
 
+    /// The maximum response body size (256 MB). Bodies larger than this are
+    /// aborted with a ``QueryError`` to guard client memory against a malicious
+    /// or buggy server.
+    public static let maxResponseBytes = 268_435_456
+
     /// The daemon base URL this client was configured with.
     public let baseURL: String
     /// The Bearer token, when configured.
@@ -343,34 +348,29 @@ public final class MongrelDBClient {
 
     // MARK: SQL
 
-    /// Executes a SQL statement via the `/sql` endpoint.
+    /// Executes a SQL statement via the `/sql` endpoint, requesting JSON output.
     ///
-    /// When the daemon returns a JSON result set, the rows are decoded and
-    /// returned; for statements that yield no rows (DDL/DML) or a non-JSON
-    /// (Arrow IPC) body, it returns an empty list.
+    /// The server returns a JSON array of row objects keyed by column name, e.g.
+    /// `[["id": 1, "name": "Alice", "score": 95.5]]`. For statements that yield
+    /// no rows (DDL/DML), it returns an empty list.
     public func sql(_ sql: String) async throws -> [[String: Any]] {
-        let body = try await post("/sql", ["sql": sql])
+        let body = try await post("/sql", ["sql": sql, "format": "json"])
         let trimmed = Self.trimWhitespace(body)
         if trimmed.isEmpty { return [] }
-        // The /sql endpoint generally streams Arrow IPC bytes for SELECTs; only
-        // decode when the body is actually JSON to avoid noise.
-        let first = trimmed[trimmed.startIndex]
-        if first == 0x7B || first == 0x5B { // '{' or '['
-            let parsed = try JSON.decode(body)
-            if let arr = parsed as? [Any] {
-                var rows: [[String: Any]] = []
-                for row in arr {
-                    if let m = row as? [String: Any] {
-                        rows.append(m)
-                    } else {
-                        rows.append([:])
-                    }
+        // Requested format is JSON; decode the array of row objects.
+        let parsed = try JSON.decode(body)
+        if let arr = parsed as? [Any] {
+            var rows: [[String: Any]] = []
+            for row in arr {
+                if let m = row as? [String: Any] {
+                    rows.append(m)
+                } else {
+                    rows.append([:])
                 }
-                return rows
             }
-            // A single JSON object (e.g. an error envelope) is not a row set.
-            return []
+            return rows
         }
+        // A single JSON object (e.g. an error envelope) is not a row set.
         return []
     }
 
@@ -512,6 +512,11 @@ public final class MongrelDBClient {
         }
         guard let http = response as? HTTPURLResponse else {
             throw QueryError("mongreldb: non-HTTP response")
+        }
+        if data.count > MongrelDBClient.maxResponseBytes {
+            throw QueryError(
+                "mongreldb: response body exceeds maximum size of \(MongrelDBClient.maxResponseBytes) bytes"
+            )
         }
         if !(200..<300).contains(http.statusCode) {
             throw Self.toError(status: http.statusCode, data: data)
