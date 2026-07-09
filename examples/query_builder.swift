@@ -8,10 +8,12 @@
 // query builder to fetch rows by a range condition and by an exact primary-key
 // match. Cleans up by dropping the table.
 
+import Foundation
 import MongrelDB
 
 let url = "http://127.0.0.1:8453"
-let table = "example_query"
+// Unique suffix per run so repeated/concurrent runs never collide.
+let table = "example_query_\(String(UUID().uuidString.prefix(8)))"
 
 @main
 struct QueryBuilderExample {
@@ -24,6 +26,9 @@ struct QueryBuilderExample {
         }
         print("Connected to MongrelDB")
 
+        // The table is dropped on both the success path (end of the do block)
+        // and the error path (catch) so cleanup always happens. (Swift does not
+        // allow `await` inside a `defer` block, so we drop explicitly in each.)
         do {
             _ = try await db.createTable(table, columns: [
                 ["id": 1, "name": "id", "ty": "int64", "primary_key": true, "nullable": false],
@@ -59,10 +64,13 @@ struct QueryBuilderExample {
                 print("  \(row)")
             }
 
-            try await db.dropTable(table)
+            // Cleanup on the success path.
+            try? await db.dropTable(table)
             print("Dropped table \(table)")
         } catch {
             FileHandle.standardError.write("error: \(error)\n".data(using: .utf8)!)
+            // Cleanup on the error path too, so the table never leaks.
+            try? await db.dropTable(table)
             exit(1)
         }
     }

@@ -9,10 +9,16 @@
 // re-committing with the same idempotency key (the daemon returns the original
 // result and applies no duplicate rows). Cleans up by dropping the table.
 
+import Foundation
 import MongrelDB
 
 let url = "http://127.0.0.1:8453"
-let table = "example_txn"
+// Unique suffix per run so repeated/concurrent runs never collide.
+let suffix = String(UUID().uuidString.prefix(8))
+let table = "example_txn_\(suffix)"
+// Idempotency key must be unique per run so retry logic isn't confused with a
+// previous run's committed batch.
+let idempotencyKey = "example-txn-\(suffix)"
 
 @main
 struct TransactionsExample {
@@ -25,6 +31,9 @@ struct TransactionsExample {
         }
         print("Connected to MongrelDB")
 
+        // The table is dropped on both the success path (end of the do block)
+        // and the error path (catch) so cleanup always happens. (Swift does not
+        // allow `await` inside a `defer` block, so we drop explicitly in each.)
         do {
             _ = try await db.createTable(table, columns: [
                 ["id": 1, "name": "id", "ty": "int64", "primary_key": true, "nullable": false],
@@ -51,18 +60,21 @@ struct TransactionsExample {
             // replays the original result and applies no extra rows.
             let retry = db.beginTransaction()
             retry.put(table, cells: [1: 4, 2: "Dave", 3: 60.0], returning: false)
-            _ = try await retry.commit(idempotencyKey: "example-txn-key")
+            _ = try await retry.commit(idempotencyKey: idempotencyKey)
             print("After first idempotent commit: \(try await db.count(table)) rows")
 
             let retry2 = db.beginTransaction()
             retry2.put(table, cells: [1: 4, 2: "Dave", 3: 60.0], returning: false)
-            _ = try await retry2.commit(idempotencyKey: "example-txn-key")
+            _ = try await retry2.commit(idempotencyKey: idempotencyKey)
             print("After duplicate idempotent commit (same key): \(try await db.count(table)) rows (no double-apply)")
 
-            try await db.dropTable(table)
+            // Cleanup on the success path.
+            try? await db.dropTable(table)
             print("Dropped table \(table)")
         } catch {
             FileHandle.standardError.write("error: \(error)\n".data(using: .utf8)!)
+            // Cleanup on the error path too, so the table never leaks.
+            try? await db.dropTable(table)
             exit(1)
         }
     }

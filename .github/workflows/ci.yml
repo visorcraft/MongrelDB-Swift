@@ -90,10 +90,19 @@ jobs:
       - name: Run live tests
         run: swift test
 
-      - name: Run examples
+      - name: Compile-check examples
+        # The examples are standalone source files (not SPM executable targets),
+        # so they can't be `swift run` directly. Instead, type-check each one
+        # against the MongrelDB module built by the prior `swift build` step.
+        # This catches syntax/type errors and broken API usage without needing
+        # a runnable executable target. continue-on-error keeps this best-effort
+        # since type-checking relies on the .build/debug module layout.
         continue-on-error: true
         run: |
-          echo "Swift examples are verified manually (requires SPM project setup)"
+          for ex in examples/*.swift; do
+            echo "=== Type-checking $ex ==="
+            swiftc -typecheck -I.build/debug "$ex" || { echo "FAILED: $ex"; exit 1; }
+          done
 
       - name: Dump server log on failure
         if: failure()

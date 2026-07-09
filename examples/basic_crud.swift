@@ -8,10 +8,14 @@
 // (updates) one row by primary key, deletes one row, then drops the table.
 // Progress is printed at every step.
 
+import Foundation
 import MongrelDB
 
 let url = "http://127.0.0.1:8453"
-let table = "example_crud"
+// Unique suffix per run so repeated/concurrent runs never collide on the same
+// table name. Foundation provides UUID (also needed for FileHandle/exit).
+let suffix = String(UUID().uuidString.prefix(8))
+let table = "example_crud_\(suffix)"
 
 @main
 struct BasicCrud {
@@ -25,6 +29,9 @@ struct BasicCrud {
         }
         print("Connected to MongrelDB")
 
+        // The table is dropped on both the success path (end of the do block)
+        // and the error path (catch) so cleanup always happens. (Swift does not
+        // allow `await` inside a `defer` block, so we drop explicitly in each.)
         do {
             // Create the table. Schema: id (int64 PK), name (varchar), score (float64).
             let tid = try await db.createTable(table, columns: [
@@ -61,11 +68,13 @@ struct BasicCrud {
             try await db.deleteByPk(table, pk: 3)
             print("Deleted Carol; remaining rows: \(try await db.count(table))")
 
-            // Cleanup.
-            try await db.dropTable(table)
+            // Cleanup on the success path.
+            try? await db.dropTable(table)
             print("Dropped table \(table)")
         } catch {
             FileHandle.standardError.write("error: \(error)\n".data(using: .utf8)!)
+            // Cleanup on the error path too, so the table never leaks.
+            try? await db.dropTable(table)
             exit(1)
         }
     }
