@@ -496,8 +496,10 @@ public final class MongrelDBClient {
                 let task = session.dataTask(with: req) { data, response, error in
                     if let error {
                         cont.resume(throwing: error)
+                    } else if let response {
+                        cont.resume(returning: (data ?? Data(), response))
                     } else {
-                        cont.resume(returning: (data ?? Data(), response!))
+                        cont.resume(throwing: QueryError("mongreldb: empty response from server"))
                     }
                 }
                 task.resume()
@@ -615,16 +617,18 @@ public final class MongrelDBClient {
         }
     }
 
-    /// Percent-encodes a path segment (used for table names that may contain
-    /// characters unsafe in a URL). Leaves the forward slash intact so compound
-    /// identifiers survive.
+    /// Percent-encodes a path segment so table names containing '/', '?', '#',
+    /// or spaces cannot inject extra segments or break routing. Only RFC 3986
+    /// unreserved characters pass through unescaped.
     static func pathEscape(_ seg: String) -> String {
         seg.addingPercentEncoding(withAllowedCharacters: MongrelDBClient.pathAllowed) ?? seg
     }
 
     private static let pathAllowed: CharacterSet = {
         var cs = CharacterSet()
-        cs.insert(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~/")
+        // RFC 3986 unreserved characters only - '/' is NOT included so a
+        // table name cannot inject an extra path segment.
+        cs.insert(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~")
         return cs
     }()
 

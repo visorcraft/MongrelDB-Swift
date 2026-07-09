@@ -23,6 +23,14 @@ public final class Transaction {
     /// that has already been committed or rolled back.
     public static let alreadyCommittedMessage = "mongreldb: transaction already committed"
 
+    /// Unavailable-throwing helper for non-throwing staging methods. Calling
+    /// this traps with a clear message instead of the opaque `precondition`
+    /// crash, and keeps the compiler happy in `guard ... else` branches.
+    @inline(__always)
+    private static func throwAlreadyCommitted() -> Never {
+        fatalError(alreadyCommittedMessage)
+    }
+
     private let client: MongrelDBClient
     private var ops: [[String: Any]] = []
     private var committed: Bool = false
@@ -41,7 +49,7 @@ public final class Transaction {
     /// - Returns: this transaction, for chaining
     @discardableResult
     public func put(_ table: String, cells: [Int: Any], returning: Bool) -> Transaction {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         let body: [String: Any] = [
             "table": table,
             "cells": MongrelDBClient.flattenCells(cells),
@@ -66,7 +74,7 @@ public final class Transaction {
         updateCells: [Int: Any]?,
         returning: Bool
     ) -> Transaction {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         var body: [String: Any] = [
             "table": table,
             "cells": MongrelDBClient.flattenCells(cells),
@@ -86,7 +94,7 @@ public final class Transaction {
     /// - Returns: this transaction, for chaining
     @discardableResult
     public func delete(_ table: String, rowId: Int) -> Transaction {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         ops.append(["delete": ["table": table, "row_id": rowId]])
         return self
     }
@@ -98,7 +106,7 @@ public final class Transaction {
     /// - Returns: this transaction, for chaining
     @discardableResult
     public func deleteByPk(_ table: String, pk: Any) -> Transaction {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         ops.append(["delete_by_pk": ["table": table, "pk": pk]])
         return self
     }
@@ -116,7 +124,7 @@ public final class Transaction {
     /// - Throws: ``ConflictError`` if a constraint violation rolled back the
     ///   batch; a precondition failure if called twice on the same transaction.
     public func commit(idempotencyKey: String? = nil) async throws -> [[String: Any]] {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         committed = true
         if ops.isEmpty { return [] }
         return try await client.commitTxn(ops, idempotencyKey: idempotencyKey)
@@ -126,7 +134,7 @@ public final class Transaction {
     ///
     /// - Precondition: the transaction has not already been committed or rolled back.
     public func rollback() {
-        precondition(!committed, Self.alreadyCommittedMessage)
+        guard !committed else { Self.throwAlreadyCommitted() }
         ops.removeAll()
         committed = true
     }
