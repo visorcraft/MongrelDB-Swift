@@ -59,7 +59,7 @@ The package has no runtime dependencies - only the Swift standard library and Fo
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
 - **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
-- **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
+- **Schema management**: typed table creation with engine-native passthrough (each column dict is forwarded verbatim, so `enum_variants`, `default_value`, `auto_increment`, `encrypted`, and any other engine key work without a typed wrapper), full schema catalog, and per-table descriptors.
 - **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `sql`.
 - **Maintenance**: compaction (all tables or per-table).
 - **Pluggable transport**: bring your own `URLSession`. Bearer token and HTTP Basic auth are first-class options.
@@ -84,27 +84,35 @@ import MongrelDB
 // Connect to a running mongreldb-server daemon.
 let db = MongrelDBClient(baseURL: "http://127.0.0.1:8453")
 
-// Create a table. Column ids are stable on-wire identifiers.
+// Create a table. Column ids are stable on-wire identifiers. The client
+// passes every column dict through verbatim, so any key the engine
+// recognises works here - `enum_variants` for an `enum` column and
+// `default_value` for a column default, for example.
 _ = try await db.createTable("orders", columns: [
     ["id": 1, "name": "id",       "ty": "int64",   "primary_key": true,  "nullable": false],
     ["id": 2, "name": "customer", "ty": "varchar", "primary_key": false, "nullable": false],
-    ["id": 3, "name": "amount",   "ty": "float64", "primary_key": false, "nullable": false]
+    [
+        "id": 3, "name": "status", "ty": "enum",
+        "enum_variants": ["draft", "open", "closed"],
+        "default_value": "draft",
+    ],
+    ["id": 4, "name": "amount",   "ty": "float64", "primary_key": false, "nullable": false]
 ])
 
 // Insert rows (cells map column id -> value).
-_ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: 99.50])
-_ = try await db.put("orders", cells: [1: 2, 2: "Bob",   3: 150.00])
+_ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: "open",   4: 99.50])
+_ = try await db.put("orders", cells: [1: 2, 2: "Bob",   3: "closed", 4: 150.00])
 
 // Upsert (insert or update on PK conflict).
 _ = try await db.upsert(
     "orders",
-    cells: [1: 1, 2: "Alice", 3: 120.00],
-    updateCells: [3: 120.00]
+    cells: [1: 1, 2: "Alice", 3: "open", 4: 120.00],
+    updateCells: [3: "open", 4: 120.00]
 )
 
 // Query with a native index condition (learned-range index).
 let rows: [[String: Any]] = try await db.query("orders")
-    .where("range", params: ["column": 3, "min": 100.0])
+    .where("range", params: ["column": 4, "min": 100.0])
     .projection([1, 2])
     .limit(100)
     .execute()
@@ -147,8 +155,8 @@ unique, foreign-key, and check constraints at commit time.
 
 ```swift
 let txn = db.beginTransaction()
-txn.put("orders", cells: [1: 10, 2: "Dave", 3: 50.00], returning: false)
-txn.put("orders", cells: [1: 11, 2: "Eve",  3: 75.00], returning: false)
+txn.put("orders", cells: [1: 10, 2: "Dave",  3: "open", 4: 50.00], returning: false)
+txn.put("orders", cells: [1: 11, 2: "Eve",            4: 75.00], returning: false)
 txn.deleteByPk("orders", pk: 2)
 
 do {
@@ -162,7 +170,7 @@ do {
 
 // Idempotent commit - safe to retry; the daemon returns the original response.
 let txn2 = db.beginTransaction()
-txn2.put("orders", cells: [1: 20, 2: "Frank", 3: 100.00], returning: false)
+txn2.put("orders", cells: [1: 20, 2: "Frank", 3: "closed", 4: 100.00], returning: false)
 _ = try await txn2.commit(idempotencyKey: "order-20-create")
 ```
 
@@ -185,7 +193,7 @@ _ = try await db.query("orders")
 
 // Range query (learned-range index).
 _ = try await db.query("orders")
-    .where("range", params: ["column": 3, "min": 50.0, "max": 150.0])
+    .where("range", params: ["column": 4, "min": 50.0, "max": 150.0])
     .limit(100).execute()
 
 // Full-text search (FM-index).
@@ -200,7 +208,7 @@ _ = try await db.query("embeddings")
 
 // Check whether a result was capped by the limit.
 let q = db.query("orders")
-    .where("range", params: ["column": 3, "min": 0])
+    .where("range", params: ["column": 4, "min": 0])
     .limit(100)
 let rows = try await q.execute()
 if q.truncated {
@@ -211,7 +219,7 @@ if q.truncated {
 ## SQL
 
 ```swift
-_ = try await db.sql("INSERT INTO orders (id, customer, amount) VALUES (99, 'Zoe', 999.0)")
+_ = try await db.sql("INSERT INTO orders (id, customer, status, amount) VALUES (99, 'Zoe', 'open', 999.0)")
 _ = try await db.sql("CREATE TABLE archive AS SELECT * FROM orders WHERE amount > 500")
 
 // Recursive CTEs and window functions

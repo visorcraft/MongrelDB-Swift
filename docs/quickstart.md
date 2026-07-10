@@ -118,22 +118,30 @@ struct Demo {
         do {
             // 3. Create a table. Each column has a stable numeric id, a name,
             //    a type, and flags. The first column is the primary key.
+            //    Every column dict is sent verbatim to the engine, so any
+            //    extra key it understands (enum_variants, default_value, ...)
+            //    passes through untouched.
             let tid = try await db.createTable("orders", columns: [
                 ["id": 1, "name": "id",       "ty": "int64",   "primary_key": true,  "nullable": false],
                 ["id": 2, "name": "customer", "ty": "varchar", "primary_key": false, "nullable": false],
-                ["id": 3, "name": "amount",   "ty": "float64", "primary_key": false, "nullable": false],
+                [
+                    "id": 3, "name": "status", "ty": "enum",
+                    "enum_variants": ["draft", "open", "closed"],
+                    "default_value": "draft",
+                ],
+                ["id": 4, "name": "amount",   "ty": "float64", "primary_key": false, "nullable": false],
             ])
             print("created table id: \(tid)")
 
             // 4. Insert rows. Cells maps column id -> value.
-            _ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: 99.5])
-            _ = try await db.put("orders", cells: [1: 2, 2: "Bob",   3: 150.0])
+            _ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: "open", 4: 99.5])
+            _ = try await db.put("orders", cells: [1: 2, 2: "Bob",   3: "open", 4: 150.0])
 
             // 5. Query with a native index condition. The range index serves
             //    this in sub-millisecond. Projection selects only column ids
             //    1 and 2.
             let rows: [[String: Any]] = try await db.query("orders")
-                .where("range", params: ["column": 3, "min": 100.0])
+                .where("range", params: ["column": 4, "min": 100.0])
                 .projection([1, 2])
                 .limit(100)
                 .execute()
@@ -190,7 +198,7 @@ numeric `id` from `createTable`, never the `name`. The query builder's
 // Wrong:
 .where("range", params: ["column": "amount", "min": 100.0])
 // Right:
-.where("range", params: ["column": 3, "min": 100.0])
+.where("range", params: ["column": 4, "min": 100.0])
 ```
 
 **Treating a single `put` as non-transactional.** `put` is a one-op
