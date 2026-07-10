@@ -133,7 +133,7 @@ struct Demo {
             //    this in sub-millisecond. Projection selects only column ids
             //    1 and 2.
             let rows: [[String: Any]] = try await db.query("orders")
-                .where("range", ["column": 3, "min": 100.0])
+                .where("range", params: ["column": 3, "min": 100.0])
                 .projection([1, 2])
                 .limit(100)
                 .execute()
@@ -188,9 +188,9 @@ numeric `id` from `createTable`, never the `name`. The query builder's
 
 ```swift
 // Wrong:
-.where("range", ["column": "amount", "min": 100.0])
+.where("range", params: ["column": "amount", "min": 100.0])
 // Right:
-.where("range", ["column": 3, "min": 100.0])
+.where("range", params: ["column": 3, "min": 100.0])
 ```
 
 **Treating a single `put` as non-transactional.** `put` is a one-op

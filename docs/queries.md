@@ -7,7 +7,7 @@ index; conditions are AND-ed together.
 
 ```swift
 let rows: [[String: Any]] = try await db.query("orders")
-    .where("range", ["column": 3, "min": 100.0, "max": 500.0])
+    .where("range", params: ["column": 3, "min": 100.0, "max": 500.0])
     .projection([1, 2])
     .limit(100)
     .execute()
@@ -52,7 +52,7 @@ The request body produced by `build()` matches the daemon's `/kit/query` shape:
 The fastest lookup. `value` is the primary-key value.
 
 ```swift
-_ = try await db.query("orders").where("pk", ["value": 42]).execute()
+_ = try await db.query("orders").where("pk", params: ["value": 42]).execute()
 ```
 
 ### `range` - integer range (learned-range index)
@@ -61,12 +61,12 @@ Inclusive bounds. Omit `lo` or `hi` for an open range.
 
 ```swift
 _ = try await db.query("orders")
-    .where("range", ["column": 3, "min": 100, "max": 500])
+    .where("range", params: ["column": 3, "min": 100, "max": 500])
     .execute()
 
 // Open-ended: amount >= 100
 _ = try await db.query("orders")
-    .where("range", ["column": 3, "min": 100])
+    .where("range", params: ["column": 3, "min": 100])
     .execute()
 ```
 
@@ -76,7 +76,7 @@ Adds `lo_inclusive` / `hi_inclusive` flags (default inclusive).
 
 ```swift
 _ = try await db.query("orders")
-    .where("range_f64", [
+    .where("range_f64", params: [
         "column": 3,
         "min": 100.0,
         "max": 500.0,
@@ -92,7 +92,7 @@ Best for low-cardinality columns (status, category, booleans).
 
 ```swift
 _ = try await db.query("orders")
-    .where("bitmap_eq", ["column": 2, "value": "Alice"])
+    .where("bitmap_eq", params: ["column": 2, "value": "Alice"])
     .execute()
 ```
 
@@ -102,15 +102,15 @@ Match any of a set of values.
 
 ```swift
 _ = try await db.query("orders")
-    .where("bitmap_in", ["column": 2, "values": ["Alice", "Bob", "Carol"]])
+    .where("bitmap_in", params: ["column": 2, "values": ["Alice", "Bob", "Carol"]])
     .execute()
 ```
 
 ### `is_null` / `is_not_null` - null checks
 
 ```swift
-_ = try await db.query("orders").where("is_null", ["column": 3]).execute()
-_ = try await db.query("orders").where("is_not_null", ["column": 3]).execute()
+_ = try await db.query("orders").where("is_null", params: ["column": 3]).execute()
+_ = try await db.query("orders").where("is_not_null", params: ["column": 3]).execute()
 ```
 
 ### `fm_contains` - full-text substring search (FM-index)
@@ -121,13 +121,13 @@ conditions.
 
 ```swift
 _ = try await db.query("documents")
-    .where("fm_contains", ["column": 2, "pattern": "database performance"])
+    .where("fm_contains", params: ["column": 2, "pattern": "database performance"])
     .limit(10)
     .execute()
 
 // Friendly alias: "value" -> "pattern" for fm_contains only.
 _ = try await db.query("documents")
-    .where("fm_contains", ["column": 2, "value": "database"])
+    .where("fm_contains", params: ["column": 2, "value": "database"])
     .execute()
 ```
 
@@ -135,7 +135,7 @@ _ = try await db.query("documents")
 
 ```swift
 _ = try await db.query("documents")
-    .where("fm_contains_all", ["column": 2, "patterns": ["database", "performance"]])
+    .where("fm_contains_all", params: ["column": 2, "patterns": ["database", "performance"]])
     .execute()
 ```
 
@@ -145,7 +145,7 @@ Approximate nearest-neighbors over a vector column. `k` is the result count.
 
 ```swift
 _ = try await db.query("embeddings")
-    .where("ann", ["column": 2, "query": [0.1, 0.2, 0.3, 0.4], "k": 10])
+    .where("ann", params: ["column": 2, "query": [0.1, 0.2, 0.3, 0.4], "k": 10])
     .execute()
 ```
 
@@ -155,7 +155,7 @@ For sparse/bag-of-words vectors.
 
 ```swift
 _ = try await db.query("docs")
-    .where("sparse_match", ["column": 2, "query": ["0": 1.0, "7": 0.5, "42": 2.0], "k": 10])
+    .where("sparse_match", params: ["column": 2, "query": ["0": 1.0, "7": 0.5, "42": 2.0], "k": 10])
     .execute()
 ```
 
@@ -165,7 +165,7 @@ Near-duplicate detection via MinHash signatures.
 
 ```swift
 _ = try await db.query("pages")
-    .where("min_hash_similar", ["column": 2, "query": [12, 99, 421, 7], "k": 5])
+    .where("min_hash_similar", params: ["column": 2, "query": [12, 99, 421, 7], "k": 5])
     .execute()
 ```
 
@@ -178,7 +178,7 @@ need cuts bandwidth and decode cost.
 ```swift
 // Return only the id and customer columns.
 _ = try await db.query("orders")
-    .where("range", ["column": 3, "min": 100])
+    .where("range", params: ["column": 3, "min": 100])
     .projection([1, 2])
     .execute()
 ```
@@ -202,7 +202,7 @@ allows, it returns the first `n` and sets `truncated: true`. Read it with
 
 ```swift
 let q = db.query("orders")
-    .where("range", ["column": 3, "min": 0])
+    .where("range", params: ["column": 3, "min": 0])
     .limit(100)
 let rows = try await q.execute()
 if q.truncated {
@@ -223,8 +223,8 @@ index results.
 ```swift
 // Customer is Alice AND amount is between 100 and 500.
 _ = try await db.query("orders")
-    .where("bitmap_eq", ["column": 2, "value": "Alice"])
-    .where("range", ["column": 3, "min": 100, "max": 500])
+    .where("bitmap_eq", params: ["column": 2, "value": "Alice"])
+    .where("range", params: ["column": 3, "min": 100, "max": 500])
     .projection([1, 3])
     .limit(50)
     .execute()
@@ -254,12 +254,12 @@ The `value` → `pattern` alias applies **only** to FTS conditions, because
 
 ```swift
 // pk: "value" stays "value" (canonical)
-.where("pk", ["value": 42])
+.where("pk", params: ["value": 42])
 
 // fm_contains: "value" is translated to "pattern"
-.where("fm_contains", ["column": 2, "value": "search term"])
+.where("fm_contains", params: ["column": 2, "value": "search term"])
 // equivalent to:
-.where("fm_contains", ["column_id": 2, "pattern": "search term"])
+.where("fm_contains", params: ["column_id": 2, "pattern": "search term"])
 ```
 
 ## Putting it together
@@ -270,8 +270,8 @@ truncation check:
 ```swift
 func topSpenders(db: MongrelDBClient, customer: String) async throws -> [[String: Any]] {
     let q = db.query("orders")
-        .where("bitmap_eq", ["column": 2, "value": customer])
-        .where("range", ["column": 3, "min": 100])
+        .where("bitmap_eq", params: ["column": 2, "value": customer])
+        .where("range", params: ["column": 3, "min": 100])
         .projection([1, 3])
         .limit(50)
     let rows = try await q.execute()

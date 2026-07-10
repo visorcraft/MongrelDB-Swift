@@ -104,7 +104,7 @@ _ = try await db.upsert(
 
 // Query with a native index condition (learned-range index).
 let rows: [[String: Any]] = try await db.query("orders")
-    .where("range", ["column": 3, "min": 100.0])
+    .where("range", params: ["column": 3, "min": 100.0])
     .projection([1, 2])
     .limit(100)
     .execute()
@@ -180,27 +180,27 @@ accepted directly.
 ```swift
 // Bitmap equality (low-cardinality columns).
 _ = try await db.query("orders")
-    .where("bitmap_eq", ["column": 2, "value": "Alice"])
+    .where("bitmap_eq", params: ["column": 2, "value": "Alice"])
     .execute()
 
 // Range query (learned-range index).
 _ = try await db.query("orders")
-    .where("range", ["column": 3, "min": 50.0, "max": 150.0])
+    .where("range", params: ["column": 3, "min": 50.0, "max": 150.0])
     .limit(100).execute()
 
 // Full-text search (FM-index).
 _ = try await db.query("documents")
-    .where("fm_contains", ["column": 2, "pattern": "database performance"])
+    .where("fm_contains", params: ["column": 2, "pattern": "database performance"])
     .limit(10).execute()
 
 // Vector similarity search (HNSW).
 _ = try await db.query("embeddings")
-    .where("ann", ["column": 2, "query": [0.1, 0.2, 0.3], "k": 10])
+    .where("ann", params: ["column": 2, "query": [0.1, 0.2, 0.3], "k": 10])
     .execute()
 
 // Check whether a result was capped by the limit.
 let q = db.query("orders")
-    .where("range", ["column": 3, "min": 0])
+    .where("range", params: ["column": 3, "min": 0])
     .limit(100)
 let rows = try await q.execute()
 if q.truncated {
