@@ -5,7 +5,7 @@ import FoundationNetworking
 #endif
 @testable import MongrelDB
 
-/// Wire-shape conformance tests for ``MongrelDBClient/createTable(_:columns:)``.
+/// Wire-shape conformance tests for ``MongrelDBClient/createTable(_:columns:constraints:)``.
 ///
 /// The client serialises each caller's column dictionary verbatim to JSON; it
 /// is a thin pass-through, not a typed DSL. The engine understands a wider set
@@ -106,6 +106,12 @@ final class CreateTableWireShapeTests: XCTestCase {
                 "enum_variants": ["draft", "open", "closed"],
                 "default_value": "draft",
             ],
+        ], constraints: [
+            "checks": [[
+                "id": 1,
+                "name": "ck_status",
+                "expr": ["IsNotNull": 2],
+            ]],
         ])
 
         let captured = CaptureProtocol.captured
@@ -130,6 +136,9 @@ final class CreateTableWireShapeTests: XCTestCase {
             json.contains("\"draft\""),
             "expected default value draft in body, got: \(json)"
         )
+        XCTAssertTrue(json.contains("\"constraints\""), "expected constraints in body: \(json)")
+        XCTAssertTrue(json.contains("\"checks\""), "expected checks in body: \(json)")
+        XCTAssertTrue(json.contains("\"IsNotNull\""), "expected check expression in body: \(json)")
     }
 
     /// Regression: columns that do NOT supply `enum_variants` or `default_value`

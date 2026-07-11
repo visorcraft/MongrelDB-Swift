@@ -97,6 +97,12 @@ _ = try await db.createTable("orders", columns: [
         "default_value": "draft",
     ],
     ["id": 4, "name": "amount",   "ty": "float64", "primary_key": false, "nullable": false]
+], constraints: [
+    "checks": [[
+        "id": 1,
+        "name": "ck_customer",
+        "expr": ["IsNotNull": 2],
+    ]],
 ])
 
 // Insert rows (cells map column id -> value).
@@ -285,7 +291,7 @@ do {
 | `init(baseURL:token:username:password:session:timeout:)` | Construct a client (`baseURL` defaults to `http://127.0.0.1:8453`) |
 | `health() async -> Bool` | Check daemon health |
 | `tableNames() async throws -> [String]` | List table names |
-| `createTable(_:columns:) async throws -> Int` | Create a table; returns the table id |
+| `createTable(_:columns:constraints:) async throws -> Int` | Create a table; returns the table id |
 | `dropTable(_:) async throws` | Drop a table |
 | `count(_:) async throws -> Int` | Row count |
 | `put(_:cells:idempotencyKey:) async throws -> [String: Any]` | Insert a row |

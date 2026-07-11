@@ -238,11 +238,17 @@ public final class MongrelDBClient {
     /// assigned table id.
     ///
     /// Each column is a `[String: Any]` dictionary sent verbatim to the daemon.
-    /// Recognized keys are `id`, `name`, `ty`, `primary_key`, and `nullable`.
+    /// Recognized keys include `id`, `name`, `ty`, `primary_key`, `nullable`,
+    /// `enum_variants`, and `default_value`; table checks go in `constraints`.
     /// - Returns: the assigned table id, or `0` if the daemon did not return one.
     @discardableResult
-    public func createTable(_ name: String, columns: [[String: Any]]) async throws -> Int {
-        let payload: [String: Any] = ["name": name, "columns": columns]
+    public func createTable(
+        _ name: String,
+        columns: [[String: Any]],
+        constraints: [String: Any]? = nil
+    ) async throws -> Int {
+        var payload: [String: Any] = ["name": name, "columns": columns]
+        if let constraints { payload["constraints"] = constraints }
         let body = try await post("/kit/create_table", payload)
         if body.isEmpty { return 0 }
         let parsed = try JSON.decode(body)
