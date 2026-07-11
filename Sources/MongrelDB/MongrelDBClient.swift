@@ -625,6 +625,10 @@ public final class MongrelDBClient {
         }
         let msg = message!
 
+        if msg.lowercased().hasPrefix("not found:") {
+            return NotFoundError(message: msg, status: 404, code: code, opIndex: opIndex)
+        }
+
         switch status {
         case 401, 403:
             return AuthError(message: msg, status: status, code: code, opIndex: opIndex)
