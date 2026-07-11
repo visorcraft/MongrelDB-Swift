@@ -123,8 +123,8 @@ final class CreateTableWireShapeTests: XCTestCase {
         let req = captured[0]
         XCTAssertEqual(req.method, "POST", "expected POST method")
         XCTAssertTrue(
-            req.url?.path.hasSuffix("/kit/create_table") ?? false,
-            "expected /kit/create_table, got \(req.url?.path ?? "?")"
+            req.url.path.hasSuffix("/kit/create_table"),
+            "expected /kit/create_table, got \(req.url.path)"
         )
         let body = req.body ?? Data()
         let json = String(data: body, encoding: .utf8) ?? ""
