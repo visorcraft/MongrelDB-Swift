@@ -223,6 +223,25 @@ public final class MongrelDBClient {
         }
     }
 
+    public func historyRetentionEpochs() async throws -> UInt64 {
+        let value = try await historyRetention("GET", nil)["history_retention_epochs"]
+        return (value as? NSNumber)?.uint64Value ?? 0
+    }
+
+    public func earliestRetainedEpoch() async throws -> UInt64 {
+        let value = try await historyRetention("GET", nil)["earliest_retained_epoch"]
+        return (value as? NSNumber)?.uint64Value ?? 0
+    }
+
+    public func setHistoryRetentionEpochs(_ epochs: UInt64) async throws -> [String: Any] {
+        try await historyRetention("PUT", ["history_retention_epochs": epochs])
+    }
+
+    private func historyRetention(_ method: String, _ payload: Any?) async throws -> [String: Any] {
+        let data = try await send(method, "/history/retention", body: payload)
+        return try JSON.decode(data) as? [String: Any] ?? [:]
+    }
+
     /// Lists all table names in the database.
     public func tableNames() async throws -> [String] {
         let body = try await get("/tables")

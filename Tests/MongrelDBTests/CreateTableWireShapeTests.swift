@@ -106,6 +106,10 @@ final class CreateTableWireShapeTests: XCTestCase {
                 "enum_variants": ["draft", "open", "closed"],
                 "default_value": "draft",
             ],
+            ["id": 3, "name": "retries", "ty": "int64", "default_value": 3],
+            ["id": 4, "name": "enabled", "ty": "bool", "default_value": true],
+            ["id": 5, "name": "optional", "ty": "varchar", "default_value": NSNull()],
+            ["id": 6, "name": "created_at", "ty": "timestamp", "default_expr": "now"],
         ], constraints: [
             "checks": [[
                 "id": 1,
@@ -136,6 +140,10 @@ final class CreateTableWireShapeTests: XCTestCase {
             json.contains("\"draft\""),
             "expected default value draft in body, got: \(json)"
         )
+        XCTAssertTrue(json.contains("\"default_value\":3"))
+        XCTAssertTrue(json.contains("\"default_value\":true"))
+        XCTAssertTrue(json.contains("\"default_value\":null"))
+        XCTAssertTrue(json.contains("\"default_expr\":\"now\""))
         XCTAssertTrue(json.contains("\"constraints\""), "expected constraints in body: \(json)")
         XCTAssertTrue(json.contains("\"checks\""), "expected checks in body: \(json)")
         XCTAssertTrue(json.contains("\"IsNotNull\""), "expected check expression in body: \(json)")
