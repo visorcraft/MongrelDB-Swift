@@ -20,6 +20,11 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
             let url: URL
             let method: String?
             let body: Data?
+            let headers: [String: String]
+
+            func value(forHTTPHeaderField field: String) -> String? {
+                headers.first { $0.key.lowercased() == field.lowercased() }?.value
+            }
         }
 
         static var captured: [CapturedRequest] = []
@@ -43,7 +48,8 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
             let entry = CapturedRequest(
                 url: request.url!,
                 method: request.httpMethod,
-                body: request.httpBody
+                body: request.httpBody,
+                headers: request.allHTTPHeaderFields ?? [:]
             )
             lock.lock()
             captured.append(entry)
@@ -128,7 +134,7 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
         // The PUT body must carry only the new window size; the read-only
         // earliest_retained_epoch field must never be echoed back to the server.
         XCTAssertNil(json["earliest_retained_epoch"])
-        XCTAssertFalse(body.range(of: "earliest_retained_epoch") != nil,
+        XCTAssertFalse(body.range(of: Data("earliest_retained_epoch".utf8)) != nil,
                        "PUT body must not contain earliest_retained_epoch")
 
         let contentType = req.value(forHTTPHeaderField: "Content-Type")

@@ -270,13 +270,16 @@ final class MongrelDBLiveTests: XCTestCase {
 
     func testHistoryRetentionRoundTrip() async throws {
         let db = try await requireDaemon()
-        XCTAssertGreaterThan(try await db.historyRetentionEpochs(), 0, "expected a positive default retention window")
-        XCTAssertGreaterThan(try await db.earliestRetainedEpoch(), 0, "expected a positive earliest retained epoch")
+        let defaultEpochs = try await db.historyRetentionEpochs()
+        XCTAssertGreaterThan(defaultEpochs, 0, "expected a positive default retention window")
+        let earliestEpoch = try await db.earliestRetainedEpoch()
+        XCTAssertGreaterThan(earliestEpoch, 0, "expected a positive earliest retained epoch")
 
         try await Self.withRestoredRetention(db: db, temporaryEpochs: 1_000) {
             let updated = try await db.setHistoryRetentionEpochs(1_000)
             XCTAssertEqual(updated["history_retention_epochs"] as? Int, 1_000)
-            XCTAssertEqual(try await db.historyRetentionEpochs(), 1_000)
+            let roundTripEpochs = try await db.historyRetentionEpochs()
+            XCTAssertEqual(roundTripEpochs, 1_000)
         }
     }
 
