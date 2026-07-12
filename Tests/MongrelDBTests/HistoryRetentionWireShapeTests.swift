@@ -23,11 +23,19 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
         }
 
         static var captured: [CapturedRequest] = []
+        // Configurable response so error-propagation tests can drive non-2xx
+        // paths. Reset to the 200 defaults in setUp().
+        static var statusCode: Int = 200
+        static var body: Data = #"{"history_retention_epochs":1024,"earliest_retained_epoch":7}"#
+            .data(using: .utf8)!
         private static let lock = NSLock()
 
         static func reset() {
             lock.lock()
             captured.removeAll()
+            statusCode = 200
+            body = #"{"history_retention_epochs":1024,"earliest_retained_epoch":7}"#
+                .data(using: .utf8)!
             lock.unlock()
         }
 
@@ -49,13 +57,12 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
             Self.record(request)
             let response = HTTPURLResponse(
                 url: request.url!,
-                statusCode: 200,
+                statusCode: Self.statusCode,
                 httpVersion: "HTTP/1.1",
                 headerFields: ["Content-Type": "application/json"]
             )!
-            let payload = #"{"history_retention_epochs":1024,"earliest_retained_epoch":7}"#.data(using: .utf8)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: payload)
+            client?.urlProtocol(self, didLoad: Self.body)
             client?.urlProtocolDidFinishLoading(self)
         }
 
@@ -118,7 +125,59 @@ final class HistoryRetentionWireShapeTests: XCTestCase {
         )
         XCTAssertEqual(json["history_retention_epochs"] as? Int, 2048)
 
+        // The PUT body must carry only the new window size; the read-only
+        // earliest_retained_epoch field must never be echoed back to the server.
+        XCTAssertNil(json["earliest_retained_epoch"])
+        XCTAssertFalse(body.range(of: "earliest_retained_epoch") != nil,
+                       "PUT body must not contain earliest_retained_epoch")
+
         let contentType = req.value(forHTTPHeaderField: "Content-Type")
         XCTAssertEqual(contentType, "application/json")
+    }
+
+    // MARK: - Error propagation
+
+    func testNon2xx500MapsToQueryError() async throws {
+        CaptureProtocol.statusCode = 500
+        CaptureProtocol.body = #"{"error":{"message":"boom","code":"INTERNAL"}}"#.data(using: .utf8)!
+
+        let db = makeClient()
+        do {
+            _ = try await db.historyRetentionEpochs()
+            XCTFail("expected a QueryError for status 500")
+        } catch let error as QueryError {
+            XCTAssertEqual(error.status, 500, "QueryError should carry status 500")
+            XCTAssertEqual(error.code, "INTERNAL", "QueryError should surface the server code")
+        } catch {
+            XCTFail("expected QueryError for 500, got \(type(of: error))")
+        }
+
+        // The failed request must still have been captured so callers can audit
+        // the exact method/path even on the error path.
+        let captured = CaptureProtocol.captured
+        XCTAssertEqual(captured.count, 1)
+        XCTAssertEqual(captured[0].method, "GET")
+    }
+
+    func testNon2xx404MapsToNotFoundError() async throws {
+        CaptureProtocol.statusCode = 404
+        CaptureProtocol.body = #"{"error":{"message":"missing","code":"NOT_FOUND"}}"#.data(using: .utf8)!
+
+        let db = makeClient()
+        do {
+            _ = try await db.setHistoryRetentionEpochs(2048)
+            XCTFail("expected a NotFoundError for status 404")
+        } catch let error as NotFoundError {
+            XCTAssertEqual(error.status, 404, "NotFoundError should carry status 404")
+            XCTAssertEqual(error.code, "NOT_FOUND", "NotFoundError should surface the server code")
+        } catch {
+            XCTFail("expected NotFoundError for 404, got \(type(of: error))")
+        }
+
+        // A 404 on the PUT path must still issue a PUT to the right endpoint.
+        let captured = CaptureProtocol.captured
+        XCTAssertEqual(captured.count, 1)
+        XCTAssertEqual(captured[0].method, "PUT")
+        XCTAssertTrue(captured[0].url.path.hasSuffix("/history/retention"))
     }
 }
