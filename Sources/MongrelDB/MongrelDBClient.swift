@@ -146,8 +146,8 @@ public enum JSON {
 /// ```
 ///
 /// A `MongrelDBClient` is safe for concurrent use from multiple tasks once
-/// constructed: `URLSession` is thread-safe and the instance is immutable after
-/// initialization.
+/// constructed: `URLSession` is thread-safe and the only mutable client state,
+/// ``lastEpoch``, is protected by an internal lock.
 public final class MongrelDBClient {
     /// The daemon address used when none is supplied.
     public static let defaultBaseURL = "http://127.0.0.1:8453"
@@ -172,6 +172,17 @@ public final class MongrelDBClient {
     public let session: URLSession
     /// The per-request timeout, in seconds.
     public let timeout: TimeInterval
+
+    /// The commit epoch of the most recent successful `/kit/txn` call, or `nil`
+    /// before any transaction has committed through this client.
+    public var lastEpoch: UInt64? {
+        lastEpochLock.lock()
+        defer { lastEpochLock.unlock() }
+        return _lastEpoch
+    }
+
+    private let lastEpochLock = NSLock()
+    private var _lastEpoch: UInt64?
 
     /// Creates a client for the daemon at `baseURL` with optional
     /// authentication.
@@ -223,23 +234,43 @@ public final class MongrelDBClient {
         }
     }
 
+    /// Returns the configured history-retention window in commit epochs.
+    ///
+    /// A value of `0` means MVCC time travel is disabled. Requires a healthy
+    /// daemon; throws if the response is missing the expected field.
     public func historyRetentionEpochs() async throws -> UInt64 {
-        let value = try await historyRetention("GET", nil)["history_retention_epochs"]
-        return (value as? NSNumber)?.uint64Value ?? 0
+        let obj = try await historyRetention("GET", nil)
+        guard let value = obj["history_retention_epochs"],
+              let epochs = Self.asUInt64(value) else {
+            throw QueryError("mongreldb: history_retention_epochs missing or not a u64")
+        }
+        return epochs
     }
 
+    /// Returns the oldest commit epoch still retained for `AS OF EPOCH` queries,
+    /// or `0` when no history is retained.
     public func earliestRetainedEpoch() async throws -> UInt64 {
-        let value = try await historyRetention("GET", nil)["earliest_retained_epoch"]
-        return (value as? NSNumber)?.uint64Value ?? 0
+        let obj = try await historyRetention("GET", nil)
+        guard let value = obj["earliest_retained_epoch"],
+              let epoch = Self.asUInt64(value) else {
+            throw QueryError("mongreldb: earliest_retained_epoch missing or not a u64")
+        }
+        return epoch
     }
 
+    /// Sets how many committed epochs of history to retain for MVCC time-travel
+    /// queries. Requires admin privileges when the daemon is running with auth.
     public func setHistoryRetentionEpochs(_ epochs: UInt64) async throws -> [String: Any] {
         try await historyRetention("PUT", ["history_retention_epochs": epochs])
     }
 
     private func historyRetention(_ method: String, _ payload: Any?) async throws -> [String: Any] {
         let data = try await send(method, "/history/retention", body: payload)
-        return try JSON.decode(data) as? [String: Any] ?? [:]
+        let parsed = try JSON.decode(data)
+        guard let obj = parsed as? [String: Any] else {
+            throw QueryError("mongreldb: /history/retention returned non-object JSON")
+        }
+        return obj
     }
 
     /// Lists all table names in the database.
@@ -361,7 +392,9 @@ public final class MongrelDBClient {
             payload["idempotency_key"] = key
         }
         let body = try await post("/kit/txn", payload)
-        return try Self.decodeResults(body)
+        let (epoch, results) = try Self.decodeTxnResponse(body)
+        if let epoch { recordLastEpoch(epoch) }
+        return results
     }
 
     // MARK: Query
@@ -470,7 +503,9 @@ public final class MongrelDBClient {
             payload["idempotency_key"] = key
         }
         let body = try await post("/kit/txn", payload)
-        return try Self.decodeResults(body)
+        let (epoch, results) = try Self.decodeTxnResponse(body)
+        if let epoch { recordLastEpoch(epoch) }
+        return results
     }
 
     // MARK: HTTP plumbing
@@ -567,13 +602,17 @@ public final class MongrelDBClient {
         return flat
     }
 
-    /// Pulls the `results` array out of a `/kit/txn` response.
-    static func decodeResults(_ body: Data) throws -> [[String: Any]] {
-        if Self.trimWhitespace(body).isEmpty { return [] }
+    /// Decodes a `/kit/txn` response, returning both the commit epoch and the
+    /// per-operation results array.
+    static func decodeTxnResponse(_ body: Data) throws -> (epoch: UInt64?, results: [[String: Any]]) {
+        if Self.trimWhitespace(body).isEmpty { return (nil, []) }
         let parsed = try JSON.decode(body)
         guard let obj = parsed as? [String: Any] else {
             throw QueryError("mongreldb: decode txn response: unexpected JSON")
         }
+        // Only capture the epoch when the server reports a committed status.
+        let status = obj["status"] as? String
+        let epoch = (status == "committed") ? Self.asUInt64(obj["epoch"]) : nil
         var out: [[String: Any]] = []
         if let results = obj["results"] as? [Any] {
             for r in results {
@@ -584,7 +623,15 @@ public final class MongrelDBClient {
                 }
             }
         }
-        return out
+        return (epoch, out)
+    }
+
+    /// Records the commit epoch returned by the most recent `/kit/txn` call.
+    private func recordLastEpoch(_ epoch: UInt64) {
+        guard epoch > 0 else { return }
+        lastEpochLock.lock()
+        _lastEpoch = epoch
+        lastEpochLock.unlock()
     }
 
     /// Maps an HTTP status code and response body to a typed error. It
@@ -650,6 +697,18 @@ public final class MongrelDBClient {
         case let i as Int: return i
         case let d as Double: return Int(d)
         case let s as String: return Int(s)
+        default: return nil
+        }
+    }
+
+    /// Coerces a JSON-decoded number into a `UInt64` across Apple and
+    /// corelibs Foundation.
+    static func asUInt64(_ v: Any?) -> UInt64? {
+        switch v {
+        case let n as NSNumber: return n.uint64Value
+        case let i as UInt64: return i
+        case let i as Int where i >= 0: return UInt64(i)
+        case let s as String: return UInt64(s)
         default: return nil
         }
     }

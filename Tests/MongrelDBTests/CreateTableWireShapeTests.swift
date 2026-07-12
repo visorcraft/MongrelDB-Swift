@@ -91,10 +91,11 @@ final class CreateTableWireShapeTests: XCTestCase {
 
     // MARK: - Tests
 
-    /// When a column carries `enum_variants` and `default_value`, both keys
-    /// must reach the daemon byte-for-byte. The engine rejects an `enum` column
-    /// without `enum_variants` and silently ignores a renamed/stripped default.
-    func testCreateTableSendsEnumVariantsAndDefaultValueVerbatim() async throws {
+    /// The full static-default matrix plus `default_expr`, `enum_variants`, and
+    /// table checks must reach the daemon byte-for-byte. The engine rejects an
+    /// `enum` column without `enum_variants` and silently ignores a
+    /// renamed/stripped default.
+    func testCreateTableSendsDefaultMatrixVerbatim() async throws {
         let db = makeClient()
         _ = try await db.createTable("orders", columns: [
             [
@@ -110,6 +111,8 @@ final class CreateTableWireShapeTests: XCTestCase {
             ["id": 4, "name": "enabled", "ty": "bool", "default_value": true],
             ["id": 5, "name": "optional", "ty": "varchar", "default_value": NSNull()],
             ["id": 6, "name": "created_at", "ty": "timestamp", "default_expr": "now"],
+            ["id": 7, "name": "now_literal", "ty": "varchar", "default_value": "now"],
+            ["id": 8, "name": "uuid_literal", "ty": "varchar", "default_value": "uuid"],
         ], constraints: [
             "checks": [[
                 "id": 1,
@@ -126,27 +129,44 @@ final class CreateTableWireShapeTests: XCTestCase {
             req.url.path.hasSuffix("/kit/create_table"),
             "expected /kit/create_table, got \(req.url.path)"
         )
+
         let body = req.body ?? Data()
-        let json = String(data: body, encoding: .utf8) ?? ""
-        XCTAssertTrue(
-            json.contains("\"enum_variants\""),
-            "expected enum_variants key in body, got: \(json)"
+        let json = try XCTUnwrap(
+            try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+            "request body is not valid JSON"
         )
-        XCTAssertTrue(
-            json.contains("\"default_value\""),
-            "expected default_value key in body, got: \(json)"
-        )
-        XCTAssertTrue(
-            json.contains("\"draft\""),
-            "expected default value draft in body, got: \(json)"
-        )
-        XCTAssertTrue(json.contains("\"default_value\":3"))
-        XCTAssertTrue(json.contains("\"default_value\":true"))
-        XCTAssertTrue(json.contains("\"default_value\":null"))
-        XCTAssertTrue(json.contains("\"default_expr\":\"now\""))
-        XCTAssertTrue(json.contains("\"constraints\""), "expected constraints in body: \(json)")
-        XCTAssertTrue(json.contains("\"checks\""), "expected checks in body: \(json)")
-        XCTAssertTrue(json.contains("\"IsNotNull\""), "expected check expression in body: \(json)")
+        XCTAssertEqual(json["name"] as? String, "orders")
+
+        let statusCol = Self.column(named: "status", in: json)
+        XCTAssertNotNil(statusCol)
+        XCTAssertTrue(statusCol?["enum_variants"] is [Any], "enum_variants must be an array")
+        XCTAssertEqual(statusCol?["default_value"] as? String, "draft")
+
+        XCTAssertEqual(Self.column(named: "retries", in: json)?["default_value"] as? Int, 3)
+        XCTAssertEqual(Self.column(named: "enabled", in: json)?["default_value"] as? Bool, true)
+        XCTAssertTrue(Self.column(named: "optional", in: json)?["default_value"] is NSNull)
+
+        let createdAt = Self.column(named: "created_at", in: json)
+        XCTAssertEqual(createdAt?["default_expr"] as? String, "now")
+        XCTAssertNil(createdAt?["default_value"], "default_expr column should not also carry default_value")
+
+        // Literal "now" and "uuid" strings are static defaults, not dynamic
+        // expressions, so they travel through default_value.
+        XCTAssertEqual(Self.column(named: "now_literal", in: json)?["default_value"] as? String, "now")
+        XCTAssertFalse(Self.column(named: "now_literal", in: json)?.keys.contains("default_expr") ?? false)
+        XCTAssertEqual(Self.column(named: "uuid_literal", in: json)?["default_value"] as? String, "uuid")
+        XCTAssertFalse(Self.column(named: "uuid_literal", in: json)?.keys.contains("default_expr") ?? false)
+
+        let checks = (json["constraints"] as? [String: Any])?["checks"] as? [Any]
+        XCTAssertEqual(checks?.count, 1)
+        let check = checks?.first as? [String: Any]
+        XCTAssertEqual(check?["name"] as? String, "ck_status")
+        XCTAssertNotNil((check?["expr"] as? [String: Any])?["IsNotNull"])
+    }
+
+    private static func column(named name: String, in json: [String: Any]) -> [String: Any]? {
+        guard let columns = json["columns"] as? [[String: Any]] else { return nil }
+        return columns.first { $0["name"] as? String == name }
     }
 
     /// Regression: columns that do NOT supply `enum_variants` or `default_value`

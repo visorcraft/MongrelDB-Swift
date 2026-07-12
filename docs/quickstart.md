@@ -133,6 +133,11 @@ struct Demo {
             ])
             print("created table id: \(tid)")
 
+            // Every column dictionary is sent verbatim, so the engine sees all
+            // keys you supply: `enum_variants`, `default_value` for static
+            // defaults, and `default_expr: "now"` / `"uuid"` for dynamic
+            // defaults. Literal "now" / "uuid" strings use `default_value`.
+
             // 4. Insert rows. Cells maps column id -> value.
             _ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: "open", 4: 99.5])
             _ = try await db.put("orders", cells: [1: 2, 2: "Bob",   3: "open", 4: 150.0])
@@ -187,7 +192,34 @@ total rows: 2
 | `try await ...execute()` | Sends the query and decodes the `rows` array. |
 | `try await db.count(_:)` | GET `/tables/{name}/count`. |
 
-## 6. Common pitfalls
+## 6. History retention and time travel
+
+MongrelDB keeps a durable MVCC history window. You can inspect it, widen it,
+and query older epochs with `AS OF EPOCH`.
+
+```swift
+print(try await db.historyRetentionEpochs())  // current window, e.g. 1024
+print(try await db.earliestRetainedEpoch())   // oldest readable epoch, e.g. 3
+
+// Widen the window. The response contains the updated values.
+let resp = try await db.setHistoryRetentionEpochs(1_000)
+print(resp["history_retention_epochs"] ?? "") // 1000
+
+// Read the table as it existed at a captured commit epoch.
+_ = try await db.put("orders", cells: [1: 1, 2: 99.5])
+if let insertEpoch = db.lastEpoch {
+    let rows = try await db.sql(
+        "SELECT id, amount FROM orders AS OF EPOCH \(insertEpoch)"
+    )
+    print(rows)
+}
+```
+
+Increasing retention cannot restore history that has already been pruned. The
+window is a durable GC/time-travel policy, so it requires admin privileges when
+the daemon is running with auth.
+
+## 7. Common pitfalls
 
 **Using the column name instead of the column id.** Every on-wire API uses the
 numeric `id` from `createTable`, never the `name`. The query builder's

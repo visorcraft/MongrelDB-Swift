@@ -59,7 +59,7 @@ The package has no runtime dependencies - only the Swift standard library and Fo
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
 - **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
-- **Schema management**: typed table creation with engine-native passthrough (each column dict is forwarded verbatim, so `enum_variants`, `default_value`, `auto_increment`, `encrypted`, and any other engine key work without a typed wrapper), full schema catalog, and per-table descriptors.
+- **Schema management**: typed table creation with engine-native passthrough (each column dict is forwarded verbatim, so `enum_variants`, `default_value`, `default_expr`, `auto_increment`, `encrypted`, and any other engine key work without a typed wrapper), full schema catalog, and per-table descriptors.
 - **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `sql`.
 - **Maintenance**: compaction (all tables or per-table).
 - **Pluggable transport**: bring your own `URLSession`. Bearer token and HTTP Basic auth are first-class options.
@@ -104,6 +104,11 @@ _ = try await db.createTable("orders", columns: [
         "expr": ["IsNotNull": 2],
     ]],
 ])
+
+// Column dictionaries pass through verbatim: `enum_variants` restricts an enum
+// column, `default_value` supplies a static default, and `default_expr: "now"`
+// or `"uuid"` asks the engine to fill a dynamic default. Literal strings "now"
+// and "uuid" use `default_value`, not `default_expr`.
 
 // Insert rows (cells map column id -> value).
 _ = try await db.put("orders", cells: [1: 1, 2: "Alice", 3: "open",   4: 99.50])
@@ -304,6 +309,10 @@ do {
 | `schemaFor(_:) async throws -> [String: Any]` | Single-table descriptor |
 | `compact() async throws -> [String: Any]` | Compact all tables |
 | `compactTable(_:) async throws -> [String: Any]` | Compact one table |
+| `historyRetentionEpochs() async throws -> UInt64` | Current history-retention window |
+| `earliestRetainedEpoch() async throws -> UInt64` | Oldest epoch still readable with `AS OF EPOCH` |
+| `setHistoryRetentionEpochs(_:) async throws -> [String: Any]` | Set the durable MVCC window |
+| `lastEpoch: UInt64?` | Commit epoch of the most recent `/kit/txn` |
 | `beginTransaction() -> Transaction` | Start a batch |
 
 ### `QueryBuilder`
@@ -373,6 +382,31 @@ curl -fsSL -o bin/mongreldb-server \
 chmod +x bin/mongreldb-server
 ```
 
+## History retention
+
+Use `historyRetentionEpochs()`, `setHistoryRetentionEpochs(_:)`, and
+`earliestRetainedEpoch()` with MongrelDB 0.48.0+. The retention window controls
+how far back `AS OF EPOCH` time-travel queries can read; increasing it cannot
+bring back history that has already been pruned.
+
+```swift
+// Inspect the current durable MVCC window.
+let retained = try await db.historyRetentionEpochs()  // e.g. 1024
+let earliest = try await db.earliestRetainedEpoch()   // e.g. 3
+
+// Widen the window. The response contains the updated values.
+let resp = try await db.setHistoryRetentionEpochs(1_000)
+print(resp["history_retention_epochs"] ?? "") // 1000
+
+// After a write, lastEpoch holds the commit epoch of the most recent put,
+// upsert, delete, or transaction commit.
+_ = try await db.put("orders", cells: [1: 1, 2: 99.5])
+if let insertEpoch = db.lastEpoch {
+    // Query the table as it existed at that exact commit epoch.
+    let rows = try await db.sql("SELECT id, amount FROM orders AS OF EPOCH \(insertEpoch)")
+}
+```
+
 ## Contributing
 
 Contributions are welcome. Please:
@@ -380,10 +414,6 @@ Contributions are welcome. Please:
 1. Open an issue first for non-trivial changes.
 2. Add focused tests near your change - the suite must stay green.
 3. Keep the client dependency-free (Swift standard library + Foundation only).
-
-## History retention
-
-Use `historyRetentionEpochs()`, `setHistoryRetentionEpochs(_:)`, and `earliestRetainedEpoch()` with MongrelDB 0.48.0+.
 
 ## License
 

@@ -268,6 +268,50 @@ final class MongrelDBLiveTests: XCTestCase {
         _ = try await db.compactTable(name)
     }
 
+    func testHistoryRetentionRoundTrip() async throws {
+        let db = try await requireDaemon()
+        XCTAssertGreaterThan(try await db.historyRetentionEpochs(), 0, "expected a positive default retention window")
+        XCTAssertGreaterThan(try await db.earliestRetainedEpoch(), 0, "expected a positive earliest retained epoch")
+
+        try await Self.withRestoredRetention(db: db, temporaryEpochs: 1_000) {
+            let updated = try await db.setHistoryRetentionEpochs(1_000)
+            XCTAssertEqual(updated["history_retention_epochs"] as? Int, 1_000)
+            XCTAssertEqual(try await db.historyRetentionEpochs(), 1_000)
+        }
+    }
+
+    func testAsOfEpochTimeTravel() async throws {
+        let db = try await requireDaemon()
+
+        // The retention window must be wide enough for the historical read.
+        try await Self.withRestoredRetention(db: db, temporaryEpochs: 10_000) {
+            let name = Self.uniqueTable("swift_pit")
+            try await freshTable(db, name, columns: [
+                Self.intCol(1, "id", primaryKey: true),
+                Self.floatCol(2, "amount"),
+            ])
+
+            _ = try await db.put(name, cells: [1: 1, 2: 1.0])
+            let insertEpoch = try XCTUnwrap(db.lastEpoch, "put() did not capture a commit epoch")
+            XCTAssertGreaterThan(insertEpoch, 0)
+
+            // Mutate the row at a later epoch.
+            _ = try await db.upsert(name, cells: [1: 1, 2: 9.0], updateCells: [2: 9.0])
+
+            // The historical value at the insert epoch must still be readable.
+            let historical = try await db.sql("SELECT id, amount FROM \(name) AS OF EPOCH \(insertEpoch)")
+            XCTAssertEqual(historical.count, 1, "expected one historical row")
+            XCTAssertEqual(historical[0]["id"] as? Int, 1)
+            XCTAssertEqual(historical[0]["amount"] as? Double, 1.0, accuracy: 0.0001)
+
+            // The current value reflects the upsert.
+            let current = try await db.sql("SELECT id, amount FROM \(name)")
+            XCTAssertEqual(current.count, 1, "expected one current row")
+            XCTAssertEqual(current[0]["id"] as? Int, 1)
+            XCTAssertEqual(current[0]["amount"] as? Double, 9.0, accuracy: 0.0001)
+        }
+    }
+
     // ── Offline tests (always run, no daemon needed) ───────────────────────
 
     /// A client constructed with no reachable server reports `health() == false`
@@ -409,6 +453,25 @@ final class MongrelDBLiveTests: XCTestCase {
 
     private static func floatCol(_ id: Int, _ name: String) -> [String: Any] {
         ["id": id, "name": name, "ty": "float64", "primary_key": false, "nullable": false]
+    }
+
+    /// Widens the history-retention window, runs `body`, then restores the
+    /// original window even if `body` throws. Avoids leaking a non-default
+    /// retention setting to later live tests.
+    private static func withRestoredRetention(
+        db: MongrelDBClient,
+        temporaryEpochs: UInt64,
+        body: () async throws -> Void
+    ) async throws {
+        let original = try await db.historyRetentionEpochs()
+        try await db.setHistoryRetentionEpochs(temporaryEpochs)
+        do {
+            try await body()
+        } catch {
+            _ = try? await db.setHistoryRetentionEpochs(original)
+            throw error
+        }
+        _ = try await db.setHistoryRetentionEpochs(original)
     }
 
     private static func uniqueTable(_ prefix: String) -> String {
