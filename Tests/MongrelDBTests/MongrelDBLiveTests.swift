@@ -272,6 +272,13 @@ final class MongrelDBLiveTests: XCTestCase {
         let db = try await requireDaemon()
         let defaultEpochs = try await db.historyRetentionEpochs()
         XCTAssertGreaterThan(defaultEpochs, 0, "expected a positive default retention window")
+
+        // A fresh daemon reports earliest retained epoch 0 until it has committed
+        // history. Seed a row so the retained window is non-empty before asserting.
+        let seedTable = Self.uniqueTable("swift_retention_seed")
+        try await freshTable(db, seedTable, columns: [Self.intCol(1, "id", primaryKey: true)])
+        _ = try await db.put(seedTable, cells: [1: 1])
+
         let earliestEpoch = try await db.earliestRetainedEpoch()
         XCTAssertGreaterThan(earliestEpoch, 0, "expected a positive earliest retained epoch")
 
