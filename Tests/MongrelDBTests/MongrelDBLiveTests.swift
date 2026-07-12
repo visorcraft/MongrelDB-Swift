@@ -305,13 +305,15 @@ final class MongrelDBLiveTests: XCTestCase {
             let historical = try await db.sql("SELECT id, amount FROM \(name) AS OF EPOCH \(insertEpoch)")
             XCTAssertEqual(historical.count, 1, "expected one historical row")
             XCTAssertEqual(historical[0]["id"] as? Int, 1)
-            XCTAssertEqual(historical[0]["amount"] as? Double, 1.0, accuracy: 0.0001)
+            let historicalAmount = try XCTUnwrap(historical[0]["amount"] as? Double)
+            XCTAssertEqual(historicalAmount, 1.0, accuracy: 0.0001)
 
             // The current value reflects the upsert.
             let current = try await db.sql("SELECT id, amount FROM \(name)")
             XCTAssertEqual(current.count, 1, "expected one current row")
             XCTAssertEqual(current[0]["id"] as? Int, 1)
-            XCTAssertEqual(current[0]["amount"] as? Double, 9.0, accuracy: 0.0001)
+            let currentAmount = try XCTUnwrap(current[0]["amount"] as? Double)
+            XCTAssertEqual(currentAmount, 9.0, accuracy: 0.0001)
         }
     }
 
