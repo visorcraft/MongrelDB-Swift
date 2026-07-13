@@ -32,6 +32,7 @@ public final class QueryBuilder {
     private var conditions: [[String: Any]] = []
     private var projection: [Int]? = nil
     private var limit: Int? = nil
+    private var offset: Int? = nil
     /// Whether the most recent ``execute()`` result was capped by `limit`.
     /// `false` until ``execute()`` has been called.
     public private(set) var truncated: Bool = false
@@ -83,6 +84,13 @@ public final class QueryBuilder {
         return self
     }
 
+    /// Skips matching rows before applying the limit.
+    @discardableResult
+    public func offset(_ offset: Int) -> QueryBuilder {
+        self.offset = offset
+        return self
+    }
+
     /// Builds the request payload that will be sent to `/kit/query`.
     public func build() -> [String: Any] {
         var payload: [String: Any] = ["table": table]
@@ -93,6 +101,7 @@ public final class QueryBuilder {
         }
         if let projection { payload["projection"] = projection }
         if let limit { payload["limit"] = limit }
+        if let offset { payload["offset"] = offset }
         return payload
     }
 

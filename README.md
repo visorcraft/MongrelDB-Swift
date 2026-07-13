@@ -322,6 +322,7 @@ do {
 | `where(_:params:) -> QueryBuilder` | Add a native condition (AND-ed) |
 | `projection(_:) -> QueryBuilder` | Set column projection |
 | `limit(_:) -> QueryBuilder` | Set row limit |
+| `offset(_:) -> QueryBuilder` | Skip matching rows before the limit |
 | `build() -> [String: Any]` | Build the request payload |
 | `execute() async throws -> [[String: Any]]` | Run the query |
 | `truncated: Bool` | Whether the last `execute()` result hit the limit |
