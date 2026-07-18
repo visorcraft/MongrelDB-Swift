@@ -597,12 +597,17 @@ public final class MongrelDBClient {
     /// Flattens a column-id-to-value map to the server's flat
     /// `[col_id, value, col_id, value, ...]` array. Pair order is not
     /// significant - each value is preceded by its own column id.
+    /// Flatten a column-id-to-value map to the server's flat
+    /// `[col_id, value, ...]` array in ascending column-id order.
+    /// Stable ordering is required for idempotency keys: the server hashes the
+    /// request payload, and unordered dictionary iteration would make two
+    /// commits of the same cells look like a reuse mismatch.
     static func flattenCells(_ cells: [Int: Any]) -> [Any] {
         var flat: [Any] = []
         flat.reserveCapacity(cells.count * 2)
-        for (id, val) in cells {
+        for id in cells.keys.sorted() {
             flat.append(id)
-            flat.append(val)
+            flat.append(cells[id] as Any)
         }
         return flat
     }
