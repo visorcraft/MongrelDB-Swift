@@ -400,6 +400,11 @@ public final class MongrelDBClient {
     // MARK: Query
 
     /// Starts a fluent ``QueryBuilder`` against `table`.
+    /// Start a hybrid `SearchBuilder` against `table` (`POST /kit/search`).
+    public func search(_ table: String) -> SearchBuilder {
+        SearchBuilder(client: self, table: table)
+    }
+
     public func query(_ table: String) -> QueryBuilder {
         QueryBuilder(client: self, table: table)
     }
