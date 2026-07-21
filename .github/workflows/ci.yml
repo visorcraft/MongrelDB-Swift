@@ -62,14 +62,14 @@ jobs:
         uses: actions/cache@v6
         with:
           path: bin/mongreldb-server
-          key: mongreldb-server-linux-x64-${{ env.SERVER_VERSION }}
+          key: mongreldb-server-linux-x64-musl-${{ env.SERVER_VERSION }}
 
       - name: Download mongreldb-server
         if: steps.server-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p bin
           curl -fsSL -o bin/mongreldb-server \
-            "https://github.com/visorcraft/MongrelDB/releases/download/v${SERVER_VERSION}/mongreldb-server-linux-x64"
+            "https://github.com/visorcraft/MongrelDB/releases/download/v${SERVER_VERSION}/mongreldb-server-linux-x64-musl"
           chmod +x bin/mongreldb-server
           ./bin/mongreldb-server --help | head -n 1
 

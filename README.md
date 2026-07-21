@@ -296,7 +296,7 @@ do {
 | `init(baseURL:token:username:password:session:timeout:)` | Construct a client (`baseURL` defaults to `http://127.0.0.1:8453`) |
 | `health() async -> Bool` | Check daemon health |
 | `tableNames() async throws -> [String]` | List table names |
-| `createTable(_:columns:constraints:) async throws -> Int` | Create a table; returns the table id |
+| `createTable(_:columns:constraints:indexes:) async throws -> Int` | Create a table with optional constraints and all index definitions |
 | `dropTable(_:) async throws` | Drop a table |
 | `count(_:) async throws -> Int` | Row count |
 | `put(_:cells:idempotencyKey:) async throws -> [String: Any]` | Insert a row |

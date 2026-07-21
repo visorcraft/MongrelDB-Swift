@@ -295,10 +295,12 @@ public final class MongrelDBClient {
     public func createTable(
         _ name: String,
         columns: [[String: Any]],
-        constraints: [String: Any]? = nil
+        constraints: [String: Any]? = nil,
+        indexes: [[String: Any]]? = nil
     ) async throws -> Int {
         var payload: [String: Any] = ["name": name, "columns": columns]
         if let constraints { payload["constraints"] = constraints }
+        if let indexes { payload["indexes"] = indexes }
         let body = try await post("/kit/create_table", payload)
         if body.isEmpty { return 0 }
         let parsed = try JSON.decode(body)
