@@ -411,6 +411,83 @@ public final class MongrelDBClient {
         QueryBuilder(client: self, table: table)
     }
 
+    // MARK: Durable recovery & text retrieve (0.64+)
+
+    /// Retained SQL execution status for durable recovery (`GET /queries/{query_id}`).
+    ///
+    /// The returned ``QueryStatus`` exposes structural ``CommitHlc`` and
+    /// ``DurableOutcome`` fields (`last_commit_hlc`, `serialization_state`,
+    /// nested `durable` / `outcome`) without string-parsing free-form status text.
+    public func queryStatus(_ queryId: String) async throws -> QueryStatus {
+        guard !queryId.isEmpty else {
+            throw QueryError("mongreldb: query_id is required")
+        }
+        let body = try await get("/queries/" + Self.pathEscape(queryId))
+        return try QueryStatus.parseJSON(body)
+    }
+
+    /// Requests cancellation of a running SQL query
+    /// (`POST /queries/{query_id}/cancel`).
+    @discardableResult
+    public func cancelQuery(_ queryId: String) async throws -> [String: Any] {
+        guard !queryId.isEmpty else {
+            throw QueryError("mongreldb: query_id is required")
+        }
+        let body = try await post(
+            "/queries/" + Self.pathEscape(queryId) + "/cancel",
+            [String: Any]()
+        )
+        if body.isEmpty { return [:] }
+        let parsed = try JSON.decode(body)
+        return (parsed as? [String: Any]) ?? [:]
+    }
+
+    /// Text → embed under the active semantic identity for `embeddingColumn` →
+    /// ANN retrieve (`POST /kit/retrieve_text`, 0.64+).
+    ///
+    /// - Parameters:
+    ///   - table: target table name
+    ///   - embeddingColumn: embedding column id
+    ///   - text: query text to embed
+    ///   - k: optional hit limit (server default when `nil`)
+    ///   - deadlineMs: optional deadline in milliseconds
+    ///   - maxWork: optional work budget
+    /// - Returns: a dictionary with `hits` and optional `provenance`.
+    public func retrieveText(
+        _ table: String,
+        embeddingColumn: Int,
+        text: String,
+        k: Int? = nil,
+        deadlineMs: UInt64? = nil,
+        maxWork: UInt64? = nil
+    ) async throws -> [String: Any] {
+        guard !table.isEmpty else {
+            throw QueryError("mongreldb: table is required")
+        }
+        guard !text.isEmpty else {
+            throw QueryError("mongreldb: text is required")
+        }
+        var payload: [String: Any] = [
+            "table": table,
+            "embedding_column": embeddingColumn,
+            "text": text,
+        ]
+        if let k, k > 0 { payload["k"] = k }
+        if let deadlineMs { payload["deadline_ms"] = deadlineMs }
+        if let maxWork { payload["max_work"] = maxWork }
+        let body = try await post("/kit/retrieve_text", payload)
+        if body.isEmpty {
+            return ["hits": [], "provenance": [String: Any]()]
+        }
+        let parsed = try JSON.decode(body)
+        if let obj = parsed as? [String: Any] {
+            var out = obj
+            if out["hits"] == nil { out["hits"] = [] }
+            return out
+        }
+        return ["hits": [], "provenance": [String: Any]()]
+    }
+
     // MARK: SQL
 
     /// Executes a SQL statement via the `/sql` endpoint, requesting JSON output.
