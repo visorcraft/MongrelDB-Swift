@@ -3,6 +3,9 @@
 .swiftpm/
 Package.resolved
 
+# Downloaded mongreldb-server binary used by the live tests / CI cache
+bin/
+
 # Agent / assistant instruction files are workspace-local, never published
 AGENTS.md
 CLAUDE.md

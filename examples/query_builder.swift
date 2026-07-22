@@ -11,13 +11,13 @@
 import Foundation
 import MongrelDB
 
-let url = "http://127.0.0.1:8453"
-// Unique suffix per run so repeated/concurrent runs never collide.
-let table = "example_query_\(String(UUID().uuidString.prefix(8)))"
-
 @main
 struct QueryBuilderExample {
     static func main() async {
+        let url = "http://127.0.0.1:8453"
+        // Unique suffix per run so repeated/concurrent runs never collide.
+        let table = "example_query_\(String(UUID().uuidString.prefix(8)))"
+
         let db = MongrelDBClient(baseURL: url)
 
         guard await db.health() else {

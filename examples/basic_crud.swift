@@ -13,15 +13,16 @@
 import Foundation
 import MongrelDB
 
-let url = "http://127.0.0.1:8453"
-// Unique suffix per run so repeated/concurrent runs never collide on the same
-// table name. Foundation provides UUID (also needed for FileHandle/exit).
-let suffix = String(UUID().uuidString.prefix(8))
-let table = "example_crud_\(suffix)"
-
 @main
 struct BasicCrud {
     static func main() async {
+        let url = "http://127.0.0.1:8453"
+        // Unique suffix per run so repeated/concurrent runs never collide on
+        // the same table name. Foundation provides UUID (also needed for
+        // FileHandle/exit).
+        let suffix = String(UUID().uuidString.prefix(8))
+        let table = "example_crud_\(suffix)"
+
         let db = MongrelDBClient(baseURL: url)
 
         // Health check; bail out if the daemon is unreachable.

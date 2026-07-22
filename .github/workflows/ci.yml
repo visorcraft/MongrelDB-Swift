@@ -95,13 +95,12 @@ jobs:
         # so they can't be `swift run` directly. Instead, type-check each one
         # against the MongrelDB module built by the prior `swift build` step.
         # This catches syntax/type errors and broken API usage without needing
-        # a runnable executable target. continue-on-error keeps this best-effort
-        # since type-checking relies on the .build/debug module layout.
-        continue-on-error: true
+        # a runnable executable target. -parse-as-library is required because a
+        # lone input file is treated as the main file, where @main is rejected.
         run: |
           for ex in examples/*.swift; do
             echo "=== Type-checking $ex ==="
-            swiftc -typecheck -I.build/debug "$ex" || { echo "FAILED: $ex"; exit 1; }
+            swiftc -typecheck -parse-as-library -I.build/debug "$ex" || { echo "FAILED: $ex"; exit 1; }
           done
 
       - name: Dump server log on failure

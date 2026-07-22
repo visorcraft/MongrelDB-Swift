@@ -12,17 +12,17 @@
 import Foundation
 import MongrelDB
 
-let url = "http://127.0.0.1:8453"
-// Unique suffix per run so repeated/concurrent runs never collide.
-let suffix = String(UUID().uuidString.prefix(8))
-let table = "example_txn_\(suffix)"
-// Idempotency key must be unique per run so retry logic isn't confused with a
-// previous run's committed batch.
-let idempotencyKey = "example-txn-\(suffix)"
-
 @main
 struct TransactionsExample {
     static func main() async {
+        let url = "http://127.0.0.1:8453"
+        // Unique suffix per run so repeated/concurrent runs never collide.
+        let suffix = String(UUID().uuidString.prefix(8))
+        let table = "example_txn_\(suffix)"
+        // Idempotency key must be unique per run so retry logic isn't confused
+        // with a previous run's committed batch.
+        let idempotencyKey = "example-txn-\(suffix)"
+
         let db = MongrelDBClient(baseURL: url)
 
         guard await db.health() else {
