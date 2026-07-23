@@ -270,6 +270,6 @@ final class DurableRetrieveTests: XCTestCase {
     }
 
     func testVersionIs0640() {
-        XCTAssertEqual(MongrelDBVersion.string, "0.64.4")
+        XCTAssertEqual(MongrelDBVersion.string, "0.64.5")
     }
 }
