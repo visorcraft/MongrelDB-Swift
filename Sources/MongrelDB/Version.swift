@@ -1,4 +1,4 @@
 /// Client library version (aligned with the MongrelDB train).
 public enum MongrelDBVersion {
-    public static let string = "0.64.6"
+    public static let string = "0.64.8"
 }
